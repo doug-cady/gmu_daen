@@ -134,6 +134,7 @@ if __name__ == '__main__':
 
     pts_visited, intersect_pt = walk_pt2(INPUT_PATH.split(", "))
 
+    # Added last 10 points so animation and plot will stay on final frame for longer
     xs = [pt.x for pt in pts_visited] + [intersect_pt.x]*10
     ys = [pt.y for pt in pts_visited] + [intersect_pt.y]*10
 
