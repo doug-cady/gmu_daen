@@ -1,3 +1,5 @@
+# linear.r
+#
 # Energy efficiency Data Set
 # https://archive.ics.uci.edu/ml/datasets/Energy+efficiency#
 #
@@ -16,7 +18,7 @@
 
 
 # ------------------------------------------------------------------------------
-# Lienar regression model
+# Linear regression model
 # ------------------------------------------------------------------------------
 
 
