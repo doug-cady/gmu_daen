@@ -8,6 +8,7 @@
 
 library(readr)
 library(dplyr)
+library(ggplot2)
 
 
 matches.fn <- '../output/match_player_data_v2.tsv'
@@ -60,32 +61,19 @@ ggsave('../graphics/1_mean_kills_by_duration/mean.kills.by.duration.png',
 
 
 # 2. Match duration distribution ----------------------------------------------
-# Boxplot distribution
-gg_duration_box <- fmt.matches %>%
-    ggplot(aes(x = 1, y = duration.min)) +
-    geom_boxplot(width = 0.5, alpha = 0.75) +
-    scale_y_continuous(limits = c(0, 80)) +
-    labs(x = '', y = '',
-         title = 'Match Duration (mins) Boxplot (Median = 34.3)') +
-    theme(axis.ticks = element_blank(),
-          axis.text.x = element_blank(),
-          plot.title = element_text(size = 16),
-          axis.text = element_text(size = 12))
 
-# print(gg_duration_box)
-ggsave('../graphics/2_match_duration_hist/match_duration_box.png',
-       width = 7, height = 7, units = "in")
-
-
-# Histogram distribution
+# Histogram
 duration.median <- median(fmt.matches$duration.min)
 
 gg_duration_hist <- fmt.matches %>%
     ggplot(aes(x = duration.min)) +
     geom_histogram(fill = 'steelblue3', color = 'gray90', size = 0.25) +
     geom_vline(xintercept = duration.median, linetype = 'dashed') +
+    scale_x_continuous(breaks = c(10, 20, 30, 40, 50, 60, 70)) +
+    annotate("text", x = 36, y = 95, label = "<-- Median at 34.3",
+             hjust = 0, size = 5) +
     labs(x = '', y = '',
-         title = 'Match Duration (mins) Distribution (Median = 34.3)') +
+         title = 'Match Duration Distribution (minutes)') +
     theme(axis.ticks = element_blank(),
           plot.title = element_text(size = 16),
           axis.text = element_text(size = 12))
@@ -96,3 +84,18 @@ ggsave('../graphics/2_match_duration_hist/match_duration_hist.png',
 
 
 
+# Boxplot distribution
+# gg_duration_box <- fmt.matches %>%
+#     ggplot(aes(x = 1, y = duration.min)) +
+#     geom_boxplot(width = 0.5, alpha = 0.75) +
+#     scale_y_continuous(limits = c(0, 80)) +
+#     labs(x = '', y = '',
+#          title = 'Match Duration (mins) Boxplot') +
+#     theme(axis.ticks = element_blank(),
+#           axis.text.x = element_blank(),
+#           plot.title = element_text(size = 16),
+#           axis.text = element_text(size = 12))
+
+# # print(gg_duration_box)
+# ggsave('../graphics/2_match_duration_hist/match_duration_box.png',
+#        width = 7, height = 7, units = "in")

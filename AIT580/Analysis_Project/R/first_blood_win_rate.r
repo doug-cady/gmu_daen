@@ -58,17 +58,18 @@ gg_fb_kill_win <- fb.win.rate.simp %>%
     ggplot(aes(x = "", y = match.pct, fill = win.cat)) +
     geom_col(width = 1) +
     coord_polar("y", start = 0) +
-    geom_text(aes(label = paste0(win.cat, '\n', match.pct, "%")),
+    geom_text(aes(label = paste0(match.pct, "% ", win.cat, '\n', "(", match.ct, " teams)")),
               position = position_stack(vjust = 0.5),
-              size = 5) +
+              size = 8) +
     scale_fill_manual(values = win.colors) +
     theme_void() +
     labs(x = '', y = '', fill = '',
          title = 'Pro Dota 2 Teams with a First Blood Kill Win More Often') +
     theme(legend.position = 'none',
           strip.text.x = element_text(size = 12),
+          # axis.text = element_text(size = 12),
           axis.ticks = element_blank(),
-          plot.title = element_text(size = 16))
+          plot.title = element_text(size = 18))
 
 # print(gg_fb_kill_win)
 ggsave('../graphics/4_first_blood_win_rate/fb.kill.winrate.png',
