@@ -48,9 +48,10 @@ gg_kill_by_duration <- kill.duration %>%
     ggplot(aes(x = duration.cat, y = mean_kills)) +
     geom_col(fill = 'darkred', width = 0.8) +
     scale_y_continuous(limits = c(0, 80)) +
-    geom_text(aes(y = 0, label = paste0('n=', num.matches)), vjust = -0.75) +
+    geom_text(aes(y = 0, label = paste0('n=', num.matches)),
+              vjust = -0.75, size = 5) +
     labs(x = '', y = '',
-         title = 'Mean Kills per Match by Duration Category (mins)') +
+         title = 'Mean Kills per Match by Duration Category (minutes)') +
     theme(axis.ticks = element_blank(),
           plot.title = element_text(size = 16),
           axis.text = element_text(size = 12))
