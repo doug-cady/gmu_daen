@@ -1,0 +1,30 @@
+7 -- (special efforts)
+The infographic drew its data from a published report available on the web, but the source data was not stored in csv or excel format.  It required copying the physical website tables into excel to use in R.  Also, the report is over 60 pages long with many tables in it.
+--
+
+8 -- (section header)
+On to my redesigned graphic.
+--
+
+9 -- 
+For version 1 on the left I basically converted the radial bar plot into a linked micromap, but showing the income ratio alongside the individual top 1% and bottom 99% incomes is a bit redundant and busy.
+
+On the right hand side is version 2 where I moved to dots and arrows to begin to show some change over time for each state's income inequality with the middle column representing the absolute change in top 1% share of all income from 1973 to 2015.  But this version suffers again from redundancy with the right 2 columns showing almost the same numbers.
+--
+
+10 --
+Version 3 continues our improvement by now showing the top 1% share of all income from 1928 to 1973 (the middle column) with all arrows indicating a decreasing share of income and less inequality. That's a good thing. The right column shows the reversal of this trend from 1973 to 2015 with every state's top 1% share of all income rising significantly.
+
+On the right hand side is a nationwide view of the average annual income for both groups and we can see the stark contrast in growth over the last 87 years and between each timeframe 1928 to 73 and 73 to 2015. I've added the percent growth for each of the 2 time periods and groups.
+--
+
+11 -- (summary)
+In summary I believe my redesigned graphic facilitates better comparisons among states while also examining inequality trends over time and across regions.
+--
+
+12 -- (section header)
+In conclusion, my redesign only highlights the symptoms of inequality and so next steps would include investigating any factors or causes for this inequality and testing some hypotheses through a regression model.
+
+Thank you so much for watching my graphic redesign video everybody!  Have a great day!
+--
+

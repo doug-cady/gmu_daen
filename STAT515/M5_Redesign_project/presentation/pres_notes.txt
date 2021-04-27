@@ -1,0 +1,82 @@
+1 --
+Welcome everybody, I am Doug Cady and this is my graphic redesign project on US income inequality.
+
+Let's take a look at the original graphic and discuss its high and low points.
+--
+
+2 -- (section slide)
+--
+
+3 --
+Okay here is the whole infographic.. [pause]
+wait hang on that's kinda hard to see for you guys. Let me try another view.
+--
+
+4 -- 
+Alright much better. I'd ask that everyone watching please tilt their heads 90 degrees to the right and we'll continue.
+
+.. just kidding..
+--
+
+5 --
+We can zoom in a bit on this infographic.  Here we're looking at the 2015 average annual income by US state with the state indicated by its 2 letter abbreviation inside the gray circles.
+
+This is a radial bar plot with the red bars jutting out representing the top 1% average annual income and the little blue bars going inward the bottom 99% income.
+
+The gray bubbles vary in size according to the ratio of the top 1% to the bottom 99%. The highest inequality ratio is for New York at 44.4.
+--
+
+6 --
+So for the Good parts: This graphic is visually appealing and the states are sorted according to their income ratios.  Colors are consistent with the top 1% in red and the bottom 99% in blue (except of course in the hexbin plot in the very middle which has its own labels). The hexbin choropleth plot does a good job of facilitating comparison of inequality by state - better than the radial bar plot does.
+
+Now for some flaws. The labels are too hard to read. You can zoom in enough to see the state labels in gray, but then you can no longer see the red top 1% bars around the whole plot. 
+
+The gray bubbles overlap and so judging their size to compare across states is a bit harder to do.
+
+This is only a 2015 snapshot of the inequality and so some context is missing -- like what was the history of US income inequality? What did the inequality look like 10, 20, or 50 years ago?  This graphic is very complex and while the incomes use length encoding -- wrapping them radially with small state labels makes it hard to compare across states.
+
+To be fair this is an infographic so it was most likely designed to be printed on a long paper and not shown in a wide aspect ratio powerpoint like this one.
+--
+
+
+
+
+
+
+
+
+
+
+
+7 -- (special efforts)
+The infographic drew its data from a published report available on the web, but the source data was not stored in csv or excel format.  It required copying the physical website tables into excel to use in R.  Also, the report is over 60 pages long with many tables in it.
+--
+
+8 -- (section header)
+On to my redesigned graphic.
+--
+
+9 -- 
+For version 1 on the left I basically converted the radial bar plot into a linked state micromap, but showing the income ratio alongside the individual top 1% and bottom 99% incomes is a bit redundant and busy.
+
+On the right hand side is version 2 where I moved to dots and arrows to begin to show some change over time for each state's income inequality with the middle column representing the absolute change in top 1% share of all income from 1973 to 2015.  But this version suffers again from redundancy with the right 2 columns showing almost the same numbers.
+--
+
+10 --
+Version 3 continues our improvement by now showing the top 1% share of all income from 1928 to 1973 (the middle column) with all arrows indicating a decreasing share of income and less inequality. The right column shows the reversal of this trend from 1973 to 2015 with every state's top 1% share of all income rising significantly.
+
+On the right hand side is a nationwide view of the average annual income for both groups and we can see the stark contrast in growth over the last 98 years.
+--
+
+11 -- (summary)
+In summary I believe my redesigned graphic facilitates better comparisons among states while also examining inequality trends over time and across regions.
+--
+
+12 -- (section header)
+In conclusion, my redesign only highlights the symptoms of inequality and so next steps would include investigating any factors or causes for this inequality and testing some hypotheses through a regression model.
+
+Thank you so much for watching my graphic redesign video.
+--
+
+
+
