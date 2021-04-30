@@ -2,25 +2,35 @@
 # Doug Cady
 # Apr 2021
 
+# use Nashville, TN data? -----------------
+
 library(dplyr)
+library(tidyr)
+library(readr)
 library(ggplot2)
 library(lubridate)
 source("windows_gui.R")
 
 # Load rds data file ----------------------------------------------------------
-ri_stops_fn <- "../input/yg821jf8611_ri_statewide_2020_04_01.rds"
+# stops_fn <- "../input/yg821jf8611_ri_statewide_2020_04_01.rds"
+stops_fn <- "../input/yg821jf8611_tn_nashville_2020_04_01.rds"
 
-ri_stops <- as_tibble(readRDS(ri_stops_fn))
+stops <- as_tibble(readRDS(stops_fn))
+
+# stops_fn <- '../input/tn_nashville_2020_04_01.csv'
+
+# stops <- read_csv(stops_fn)
 
 # Summary stats and explore data fields
-# str(ri_stops)
-# summary(ri_stops)
-# glimpse(ri_stops)
+# nrow(stops)
+# str(stops)
+summary(stops)
+glimpse(stops)
 
 
 # Cleaning data ---------------------------------------------------------------
 ## Drop 10 NA rows, add year and month vars, factorize other vars
-ri_stops_clean <- drop_na(ri_stops, date) %>%
+stops_clean <- drop_na(stops, date) %>%
     rename(dept_id = department_id,
            veh_make = vehicle_make,
            veh_model = vehicle_model) %>%
@@ -33,48 +43,64 @@ ri_stops_clean <- drop_na(ri_stops, date) %>%
 
 
 # EDA -------------------------------------------------------------------------
-# summary(ri_stops_clean)
+# summary(stops_clean)
 
 ## By subject race
-ri_stops_clean  %>%
+stops_clean  %>%
     count(subject_race)
 
 ## By subject sex
-ri_stops_clean  %>%
+stops_clean  %>%
     count(subject_sex)
 
 ## By zone
-ri_stops_clean  %>%
+stops_clean  %>%
     count(zone)
 
 ## By stop type (vehicular, traffic, etc)
-ri_stops_clean  %>%
+stops_clean  %>%
     count(type)
 
 ## By year
-ri_stops_clean %>%
+stops_clean %>%
     count(year)
 # 2005 has many fewer stops than the rest of the years.
 # I think we should remove it.
-ri_stops_06_15 <- filter(ri_stops_clean, year > 2005)
+stops_06_15 <- filter(stops_clean, year > 2005)
 
-## By sbuject sex and race
-ri_stops_clean  %>%
+summary(stops_06_15)
+
+## By subject sex and race
+stops_clean  %>%
     count(subject_sex, subject_race)
 # 29063 where sex and race are NAs
 # 24 where sex is NA and race is given
 
-
 ## Stops by year and race
-ri_stops_06_15 %>%
+stops_06_15 %>%
     count(year, subject_race) %>%
     ggplot(aes(x = year, y = n, color = subject_race)) +
     geom_line()
 
 ## Stops by year and race and sex
-ri_stops_06_15 %>%
+stops_06_15 %>%
     count(year, subject_race, subject_sex) %>%
     filter(subject_sex %in% c("female", "male")) %>%
     ggplot(aes(x = year, y = n, color = subject_race)) +
     geom_line() +
     facet_wrap( ~ subject_sex, nrow = 2)
+
+## Hit rates by race
+stops_06_15 %>%
+    filter(search_conducted) %>%
+    group_by(subject_race) %>%
+    summarize(hits = sum(contraband_found, na.rm = T),
+              hit_rate = mean(contraband_found, na.rm = T))
+
+## Hit rates by race
+stops_06_15 %>%
+    filter(search_conducted) %>%
+    count(subject_race, contraband_found) %>%
+    pivot_wider(names_from = contraband_found, values_from = n) %>%
+    rename(No_Contra = "FALSE", Yes_Contra = "TRUE") %>%
+    mutate(Hit_Rate = round(Yes_Contra / (No_Contra + Yes_Contra), 3))
