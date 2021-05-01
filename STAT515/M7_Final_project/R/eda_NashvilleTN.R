@@ -1,6 +1,15 @@
+# -----------------------------------------------------------------------------
 # STAT 515 Final Project
 # Doug Cady
 # Apr 2021
+
+# Nashville, TN police stops dataset
+
+# Stanford open policing project: https://openpolicing.stanford.edu/data/
+# US census bureau data: https://www.census.gov/quickfacts/fact/table/nashvilledavidsonbalancetennessee,davidsoncountytennessee/PST045219
+
+# Part 1: Exploratory data analysis
+# -----------------------------------------------------------------------------
 
 
 library(dplyr)
@@ -26,7 +35,7 @@ stops <- as_tibble(readRDS(stops_fn))
 # glimpse(stops)
 
 
-# Cleaning data ---------------------------------------------------------------
+# Data Preparation ------------------------------------------------------------
 stops <- stops %>%
     mutate(year = year(date),
            month = month(date))
@@ -106,43 +115,56 @@ stops_10_18 %>%
          title = 'EDA - Distribution of Police Stop Violations')
 
 
-## Violation types by sex
+## Violation types by sex -----------------------------------------------------
 viols_sex <- stops_10_18 %>%
     count(subject_sex, violation) %>%
     filter(!is.na(violation)) %>%
     filter(!is.na(subject_sex)) %>%
-    mutate(subject_sex = factor(subject_sex, levels = c("female", "male")))
+    mutate(subject_sex = factor(subject_sex, levels = c("female", "male"))) %>%
+    arrange(desc(n), violation)
+
+grps <- paste0("G", 1:2)
+viols_sex$Grp <- factor(rep(grps, each = 8), levels=grps)
+
+viols_sex$violation <- reorder(viols_sex$violation, viols_sex$n)
+
+sex_labels <- data.frame(
+    n = c(630000, 455000),
+    violation = c(3.2, 2.8),
+    lab = c("Male", "Female"),
+    subject_sex = c("Male", "Female"),
+    Grp = factor(c("G1", "G1"), levels = c("G1", "G2")))
 
 gg_viols_sex <- viols_sex %>%
-    ggplot(aes(x = reorder(violation, n), y = n/1000, fill = subject_sex)) +
-    geom_col(width = 0.8, position = "dodge") +
-    coord_flip() + hw +
-    annotate("text", x = 8.2, y = 825, label = "Male",
-             size = 5, color = "black") +
-    annotate("text", x = 7.8, y = 525, label = "Female",
-             size = 5, color = "black") +
-    scale_y_continuous(limits = c(0, 1000)) +
-    # guides(fill = guide_legend(reverse = TRUE)) +
-    labs(y = '# of Stops (Thousands)', x = '',
+    ggplot(aes(x = n/1000, y = violation, fill = subject_sex)) +
+    geom_col(width = 0.8, position = "dodge") + hw +
+    geom_text(data = sex_labels, aes(label = lab, color = subject_sex),
+              size = 5, hjust = 0, fontface = "bold") +
+    scale_x_continuous(limits = c(0, 1000)) +
+    facet_grid(Grp ~ ., scales = "free_y") +
+    labs(x = '# of Stops (Thousands)', y = '',
          title = "Males get stopped more than females in Nashville, TN",
          subtitle = "Police Stop Violations from 2010-2018",
          caption = "Source: Stanford Open Policing Project") +
     theme(legend.position = "none",
-          # legend.position = c(0.8, 0.2),
-          # legend.title = element_blank(),
-          # legend.text = element_text(size = 11),
+
           axis.text = element_text(size = 11),
           strip.text = element_text(size = 11),
           plot.title = element_text(size = 14),
           plot.subtitle = element_text(face = 'italic'))
 
-gg_viols_sex
+# gg_viols_sex
 
 ggsave(filename = "../graphics/eda1_violations_sex.png",
        width = 7, height = 7, units = "in")
 
+    # guides(fill = guide_legend(reverse = TRUE)) +
+          # legend.position = c(0.8, 0.2),
+          # legend.title = element_blank(),
+          # legend.text = element_text(size = 11),
 
-## Outcome types by sex
+
+## Outcome types by sex -------------------------------------------------------
 outcome_sex <- stops_10_18 %>%
     count(subject_sex, outcome) %>%
     filter(!is.na(outcome)) %>%
@@ -173,7 +195,7 @@ ggsave(filename = "../graphics/eda2_outcome_sex.png",
        width = 7, height = 7, units = "in")
 
 
-## Violations by sex and outcome
+## Violations by sex and outcome ----------------------------------------------
 viols_outcome_sex <- stops_10_18 %>%
     count(subject_sex, outcome, violation) %>%
     filter(!is.na(outcome)) %>%
@@ -236,7 +258,7 @@ ggsave(filename = "../graphics/eda3_viols_outcome_sex.png",
 #        width = 7, height = 7, units = "in")
 
 
-## 2018 stops by race and time of day
+## 2018 stops by race and day/night -------------------------------------------
 pop_2018_fn  <- '../input/tn_nashville_2018_censusPop.xlsx'
 pop_2018 <- read_excel(pop_2018_fn)
 
@@ -253,6 +275,9 @@ stops_2018 <- stops_10_18 %>%
     left_join(pop_2018, by = "subject_race") %>%
     select(subject_sex, subject_race, hour,
            stop_night, violation, outcome, race_pop) %>%
+    mutate(subject_race = if_else(subject_race == "asian/pacific islander",
+                                  paste0("asian /", "\npacific", "\nislander"),
+                                  subject_race)) %>%
     count(subject_sex, subject_race, hour,
           stop_night, violation, outcome, race_pop)
 
@@ -268,17 +293,17 @@ stops_2018_race_night <- stops_2018 %>%
 day_night_colors = c("Night" = "#001A26", "Day*" = "#EF810E")
 
 gg_race_time <- stops_2018_race_night %>%
-    ggplot(aes(x = reorder(subject_race, stops_per_1k), y = stops_per_1k,
+    ggplot(aes(x = stops_per_1k, y = reorder(subject_race, stops_per_1k),
                fill = stopped_daynight)) +
     geom_col(width = 0.7) +
     geom_text(aes(label = night_pchg), hjust = -0.4) +
-    coord_flip() + hw +
-    scale_fill_manual(values = day_night_colors) +
+    scale_fill_manual(values = day_night_colors) + hw +
+    scale_x_continuous(limits = c(0, 250)) +
     facet_grid( ~ stopped_daynight) +
     guides(fill = "none") +
-    labs(x = "", y = "Stops Per 1,000 Persons",
+    labs(x = "Stops Per 1,000 Persons", y = "",
          title = "Black people are stopped the most at day and night",
-         subtitle = "Nashville, TN Police Stops from 2010-2018",
+         subtitle = "Nashville, TN Police Stops from 2010 to 2018",
          caption = paste0("Source: Stanford Open Policing Project",
                           "\nUS Census Bureau 2019 Population Estimates",
                           "\n\n*Day defined as 7AM - 7:59PM. All group raw stop counts > 1000")) +
@@ -287,8 +312,7 @@ gg_race_time <- stops_2018_race_night %>%
           plot.title = element_text(size = 14),
           plot.subtitle = element_text(face = 'italic'))
 
-gg_race_time
-
+# gg_race_time
 
 ggsave(filename = "../graphics/eda4_race_daynight.png",
        width = 7, height = 7, units = "in")
