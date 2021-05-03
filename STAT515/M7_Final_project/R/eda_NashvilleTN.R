@@ -17,6 +17,8 @@ library(tidyr)
 library(readr)
 library(readxl)
 library(ggplot2)
+library(gridExtra)
+library(RColorBrewer)
 library(lubridate)
 source("windows_gui.R")
 source("../../R_source_files/hw.R")
@@ -62,11 +64,29 @@ stops  %>%
 ## By year
 stops %>%
     count(year)
+
+## By outcome
+stops %>%
+    count(outcome)
+
+levels(stops$outcome)
+
+filter(stops, year == 2019) %>%
+    count(month)
+
 # 2005 has many fewer stops than the rest of the years.
 # I think we should remove it.
-stops_10_18 <- filter(stops, year < 2019)
+stops_10_18 <- filter(stops, year < 2019) %>%
+    mutate(violation = if_else(violation == "moving traffic violation",
+                               "moving traffic\nviolation",
+                       if_else(violation == "vehicle equipment violation",
+                               "vehicle equipment\nviolation",
+                               violation)))
 
 summary(stops_10_18)
+glimpse(stops_10_18)
+unique(stops_10_18$violation)
+head(stops_10_18$time, 20)
 
 ## By subject sex and race
 stops  %>%
@@ -75,10 +95,16 @@ stops  %>%
 # 24 where sex is NA and race is given
 
 ## Stops by year and race
-stops_10_18 %>%
+stops %>%
     count(year, subject_race) %>%
-    ggplot(aes(x = year, y = n, color = subject_race)) +
-    geom_line()
+    # filter(!is.na(subject_race),
+    #        subject_race != "unknown") %>%
+    ggplot(aes(x = year, y = n)) +
+    geom_line(color = "blue4") +
+    facet_wrap( ~ subject_race) +
+    scale_x_continuous(breaks = c(2010, 2012, 2014, 2016, 2018)) +
+    labs(x = '', y = '',
+         title = "Stops by Year and Subject Race")
 
 ## Stops by year and race and sex
 stops_10_18 %>%
@@ -104,15 +130,22 @@ stops_10_18 %>%
     mutate(Hit_Rate = round(Yes_Contra / (No_Contra + Yes_Contra), 3))
 
 
-## Violation types
-stops_10_18 %>%
+## Violation types  (*in pres*)
+gg_viols_init <- stops_10_18 %>%
     count(violation) %>%
     filter(!is.na(violation)) %>%
-    ggplot(aes(x = reorder(violation, n), y = n)) +
-    geom_col(width = 0.8) +
-    coord_flip() +
-    labs(y = '# of Stops', x = '',
-         title = 'EDA - Distribution of Police Stop Violations')
+    ggplot(aes(x = n, reorder(violation, n))) +
+    geom_col(width = 0.8, fill = "blue4") + hw +
+    scale_x_continuous(labels = function(x) {x / 1000000}) +
+    labs(x = '# of Stops (Millions)', y = '',
+         title = 'EDA - Distribution of Police Stop Violations',
+         caption = "Source: Stanford Open Policing Project") +
+    theme(axis.text = element_text(size = 14),
+          plot.title = element_text(size = 16, face = "italic"),
+          axis.title = element_text(size = 14))
+
+ggsave(filename = "../graphics/eda0_violations_init.png",
+       width = 7, height = 7, units = "in")
 
 
 ## Violation types by sex -----------------------------------------------------
@@ -135,21 +168,29 @@ sex_labels <- data.frame(
     subject_sex = c("Male", "Female"),
     Grp = factor(c("G1", "G1"), levels = c("G1", "G2")))
 
+ct_labels <- data.frame(
+    n = c(30000, 30000, 30000, 30000),
+    violation = c(2.2, 1.8, 1.2, 0.8),
+    lab = c("n = 4,749", "n = 2,990", "n = 389", "n = 722"),
+    subject_sex = rep(c("Male", "Female"), 2),
+    Grp = factor(rep(c("G2"), 4), levels = c("G1", "G2")))
+
 gg_viols_sex <- viols_sex %>%
     ggplot(aes(x = n/1000, y = violation, fill = subject_sex)) +
     geom_col(width = 0.8, position = "dodge") + hw +
     geom_text(data = sex_labels, aes(label = lab, color = subject_sex),
               size = 5, hjust = 0, fontface = "bold") +
+    geom_text(data = ct_labels, aes(label = lab), color = "gray50",
+              size = 4, hjust = 0) +
     scale_x_continuous(limits = c(0, 1000)) +
     facet_grid(Grp ~ ., scales = "free_y") +
-    labs(x = '# of Stops (Thousands)', y = '',
+    labs(x = '# of Police Stops (Thousands)', y = '',
          title = "Males get stopped more than females in Nashville, TN",
          subtitle = "Police Stop Violations from 2010-2018",
          caption = "Source: Stanford Open Policing Project") +
     theme(legend.position = "none",
-
-          axis.text = element_text(size = 11),
-          strip.text = element_text(size = 11),
+          axis.text = element_text(size = 12),
+          strip.text = element_blank(),
           plot.title = element_text(size = 14),
           plot.subtitle = element_text(face = 'italic'))
 
@@ -164,35 +205,89 @@ ggsave(filename = "../graphics/eda1_violations_sex.png",
           # legend.text = element_text(size = 11),
 
 
-## Outcome types by sex -------------------------------------------------------
-outcome_sex <- stops_10_18 %>%
-    count(subject_sex, outcome) %>%
+## Outcome distribution -------------------------------------------------------
+outcome_dist <- stops_10_18 %>%
+    count(outcome) %>%
     filter(!is.na(outcome)) %>%
-    filter(!is.na(subject_sex)) %>%
-    mutate(subject_sex = factor(subject_sex, levels = c("female", "male")))
+    mutate(outcome = paste0(outcome, "\n(",
+                            round(n / sum(n) * 100, 0), "%)"))
 
-gg_outcome_sex <- outcome_sex %>%
-    ggplot(aes(x = reorder(outcome, n), y = n/1000, fill = subject_sex)) +
-    geom_col(width = 0.8, position = "dodge") +
-    coord_flip() + hw +
-    scale_y_continuous(limits = c(0, 1500)) +
+gg_outcome_dist <- outcome_dist %>%
+    ggplot(aes(x = n/1000, y = reorder(outcome, n))) +
+    geom_col(width = 0.7, fill = "blue4") + hw +
+    scale_x_continuous(limits = c(0, 2500)) +
     guides(fill = guide_legend(reverse = TRUE)) +
-    labs(y = '# of Stops (Thousands)', x = '',
-         title = "Males get stopped more than females",
-         subtitle = 'Distribution of Police Stop Violations',
-         caption = "Source: Stanford Open Policing Project") +
-    theme(legend.position = c(0.8, 0.2),
-          legend.title = element_blank(),
-          legend.text = element_text(size = 11),
-          axis.text = element_text(size = 11),
-          strip.text = element_text(size = 11),
-          plot.title = element_text(size = 14),
-          plot.subtitle = element_text(face = 'italic'))
+    labs(x = '# of Stops (Thousands)', y = '',
+         title = "Distribution of Police Stop Outcomes") +
+    theme(axis.text = element_text(size = 12),
+          plot.title = element_text(size = 14))
 
-gg_outcome_sex
+gg_outcome_dist
 
-ggsave(filename = "../graphics/eda2_outcome_sex.png",
+
+
+
+## Outcome types by race -------------------------------------------------------
+pop_2018_fn  <- '../input/tn_nashville_2018_censusPop.xlsx'
+pop_2018 <- read_excel(pop_2018_fn)
+
+
+out_race_2018 <- stops_10_18 %>%
+    filter(!is.na(outcome)) %>%
+    filter(!is.na(subject_race)) %>%
+    filter(!subject_race %in% c('unknown', 'other'),
+           year == 2018,
+           outcome != "summons") %>%
+    droplevels() %>%
+    select(outcome, subject_race) %>%
+    count(outcome, subject_race) %>%
+    left_join(pop_2018, by = "subject_race") %>%
+    mutate(stops_per_1k = n / race_pop * 1000,
+           subject_race = if_else(subject_race == "asian/pacific islander",
+                                  "asian*", subject_race),
+           race_int_ord = recode(subject_race,
+                                 "black" = 4,
+                                 "white" = 3,
+                                 "hispanic" = 2,
+                                 "asian*" = 1)) %>%
+    arrange(outcome, race_int_ord)
+
+out_race_2018$outcome  <- factor(out_race_2018$outcome,
+                                 levels = c("warning", "citation", "arrest"))
+
+out_race_2018$subject_race <- reorder(out_race_2018$subject_race, -out_race_2018$stops_per_1k)
+
+# color palette from rcolorbrewer
+out_race_pal <- brewer.pal(4, "Set1")
+
+# make plot
+gg_outcome_race <-
+    ggplot(data = out_race_2018,
+           mapping = aes(x = stops_per_1k, y = race_int_ord,
+                         color = subject_race)) +
+    facet_wrap(outcome ~ ., nrow = 3, strip.position = "top",
+               scales = "free_x") +
+    geom_path(color = "gray50") +
+    geom_point(size = 5) +
+    geom_point(color = "white", size = 1.5) + hw +
+    scale_color_manual(values = out_race_pal) +
+    scale_y_continuous(labels = c("black", "white", "hispanic", "asian*"),
+                       breaks = c(4, 3, 2, 1),
+                       limits = c(0.75, 4.25)) +
+    labs(x = 'Stops per 1,000 Persons', y = '',
+         title = "2018 Outcomes by Subject Race",
+         caption = paste0("Source: Stanford Open Policing Project",
+                          "\n*Note: Asian also includes Pacific Islander race")) +
+    theme(legend.position = "none",
+          axis.text = element_text(size = 12),
+          strip.text = element_text(size = 12),
+          plot.title = element_text(size = 14))
+
+gg_outcome_race
+
+ggsave(filename = "../graphics/eda2_outcome_race.png",
        width = 7, height = 7, units = "in")
+
 
 
 ## Violations by sex and outcome ----------------------------------------------
@@ -259,9 +354,6 @@ ggsave(filename = "../graphics/eda3_viols_outcome_sex.png",
 
 
 ## 2018 stops by race and day/night -------------------------------------------
-pop_2018_fn  <- '../input/tn_nashville_2018_censusPop.xlsx'
-pop_2018 <- read_excel(pop_2018_fn)
-
 stops_2018 <- stops_10_18 %>%
     filter(year == 2018,
            !subject_race %in% c('unknown', 'other')) %>%
@@ -276,8 +368,7 @@ stops_2018 <- stops_10_18 %>%
     select(subject_sex, subject_race, hour,
            stop_night, violation, outcome, race_pop) %>%
     mutate(subject_race = if_else(subject_race == "asian/pacific islander",
-                                  paste0("asian /", "\npacific", "\nislander"),
-                                  subject_race)) %>%
+                                  "asian*", subject_race)) %>%
     count(subject_sex, subject_race, hour,
           stop_night, violation, outcome, race_pop)
 

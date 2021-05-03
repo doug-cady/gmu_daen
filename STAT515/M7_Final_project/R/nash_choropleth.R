@@ -16,11 +16,17 @@
 # library(rgdal)
 # library(leaflet)
 library(dplyr)
+library(tidyr)
 library(magrittr)
 library(readr)
+library(stringr)
 library(ggplot2)
-library(sf)
-library(lubridate)
+library(sf)  # spatial data objects
+library(lubridate) # dates/times
+
+library(RColorBrewer)  # color palettes
+library(tmap) # choropleth interactive maps
+
 
 # Load rds data file ----------------------------------------------------------
 stops_fn <- "../input/yg821jf8611_tn_nashville_2020_04_01.rds"
@@ -123,9 +129,11 @@ stops_10_18 <- na.omit(stops_10_18) %>%
 # 819929.51334682 -107329.42500306
 
 
-## Nashville zipcodes shapefile
+## Nashville zipcodes shapefile -----------------------------------------------
 nash_sf <- st_read("../input/Nashville_Zip_Codes/")
 str(nash_sf)
+
+plot(nash_sf)
 
 st_crs(nash_sf) <- 4326
 
@@ -134,43 +142,161 @@ points_nash <- stops_10_18 %>%
 
 nash_shape_stops <- nash_sf %>%
     mutate(pol_stops = lengths(st_contains(nash_sf, points_nash))) %>%
-    select(pol_stops) %>%
+    select(pol_stops, zip, po_name) %>%
     filter(pol_stops > 0)
 
 
-## Add in median income info
+## Add in median income info --------------------------------------------------
 source("get_med_income_api.R")
-# med_inc <- get_med_inc(df = nash_shape_stops)
+med_inc <- get_med_inc(df = nash_shape_stops)
 # head(med_inc)
 
 st_write(med_inc,
-         dsn = "../output/nash_stops_incomes_geo.gpkg",
+         dsn = "../output/nash_stops_incomes_geo3.gpkg",
          delete_dsn = F)
 
-summary(med_inc)
-
-# nash_stops_medInc <- nash_shape_stops %>%
-    # left_join(med_inc, by = c("lng", "lat"))
+# summary(med_inc)
+# head(med_inc)
 
 
-# med_inc_names <- c("TBLID", "GEOID", "GEONAME", "PROFLN", "ESTIMATE", "MG_ERROR")
-# med_inc <- read_csv("../input/GCT1901.csv", col_names = med_inc_names, skip = 2)
-
-# tail(med_inc)
-
-# nash_med_inc <- med_inc %>%
-#     filter(str_detect(GEONAME, ""))
 
 
+## tmap plot ------------------------------------------------------------------
+
+col_palette <- rev(brewer.pal(7, "YlGnBu"))
+# col_palette <- rev(brewer.pal(7, "GnBu"))
+# col_palette <- rev(brewer.pal(7, "PuBu"))
+# col_palette <- rev(brewer.pal(7, "YlOrRd"))
+
+med_inc_pop <- med_inc %>%
+    mutate(income_num = as.numeric(income),
+           income_popup = if_else(
+                nchar(income) == 5,
+                paste0("$", str_sub(income, 1, 2), ",", str_sub(income, 3, 5)),
+                paste0("$", str_sub(income, 1, 3), ",", str_sub(income, 4, 6))))
+
+
+# med_inc$income_num <- as.numeric(med_inc$income)
+
+# make_list_text_sep <- function(data, col, dig) {
+#     brk1 <- paste(round(data$col, dig), "to")
+#     print(brk1)
+#     # brk2 <- round(data[2:length(data$col), data$col], dig)
+
+#     # concat_brks <- paste(brk1, brk2)
+#     # return (concat_brks[1:7])
+# }
+
+breaks_qt <- classInt::classIntervals(c(min(med_inc_pop$pol_stops) - .00001,
+                                        med_inc_pop$pol_stops),
+                                      n = 7, style = "quantile", digits = 4)
+
+breaks_qt_inc <- classInt::classIntervals(c(min(med_inc_pop$income_num) - .00001,
+                                           med_inc_pop$income_num),
+                                          n = 7, style = "quantile", digits = 4)
+
+# glimpse(med_inc)
+# breaks_qt_inc$brks
+# breaks_qt_inc[, "brks"]
+# brk1 <- paste(round(breaks_qt_inc$brks, 0), "to")
+# brk1 <- paste(round(breaks_qt_inc[, "brks"], 0), "to")
+# brk2 <- round(breaks_qt_inc$brks[2:length(breaks_qt_inc$brks)], 0)
+# brk1
+# brk2
+# paste(brk1, brk2)
+
+# stop_cat_labels <- make_list_text_sep(breaks_qt, "brks", 0)
+
+stop_cat_labels <- c(
+    "1 to 33",
+    "33 to 67",
+    "67 to 157",
+    "157 to 552",
+    "552 to 999",
+    "999 to 1,520",
+    "1,520 to 2,861")
+
+income_cat_labels <- c(
+    "$12,128 to $43,429",
+    "$43,429 to $57,775",
+    "$57,775 to $62,750",
+    "$62,750 to $66,598",
+    "$66,598 to $71,593",
+    "$71,593 to $89,473",
+    "$89,473 to $181,250")
+
+stops_med_inc <- med_inc_pop %>%
+    mutate(pol_stops_cat = cut(pol_stops, breaks_qt$brks,
+                               labels = stop_cat_labels),
+           income_cat = cut(income_num, breaks_qt_inc$brks,
+                               labels = income_cat_labels)
+    )
+
+# stops_med_inc$income_cat <- forcats::fct_rev(stops_med_inc$income_cat)
+stops_med_inc$pol_stops_cat <- forcats::fct_rev(stops_med_inc$pol_stops_cat)
+
+stops_med_inc <- stops_med_inc %>%
+    mutate(po_name_zip = paste0(po_name, " - ", zip)) %>%
+    # po_name_zip to first column
+    select(po_name_zip, id:income_cat)
+
+st_write(stops_med_inc,
+         dsn = "../output/nash_stops_incomes_geo4.gpkg",
+         delete_dsn = T)
+
+# glimpse(stops_med_inc)
+# levels(stops_med_inc$pol_stops_cat)
+# levels(stops_med_inc$income_cat)
+# stops_med_inc[stops_med_inc$zip == 37217, ]
+
+## Make tmap plot (faceted)
+(edi_nash_tmap <-
+    # tm_basemap("OpenStreetMap.Mapnik") +
+    # tm_basemap(leaflet::providers$Stamen.Watercolor) +
+    tm_shape(stops_med_inc) +
+    # tm_shape(stops_med_inc, bbox = bbox_new) +
+    tm_sf(col = c("pol_stops_cat", "income_cat"),
+          title = c("Police Stops in Davidson County, TN (2010 - 2018)",
+                    "2018 Median Income in Davidson County, TN"),
+          palette = palette,
+          style = "quantile",
+          popup.vars = c("Police Stops " = "pol_stops",
+                         "Median Income " = "income_popup")) +
+    tm_facets(sync = TRUE, nrow = 2)
+    # tm_facets(sync = TRUE, nrow = 2) +
+    # tm_layout(panel.show = TRUE)
+)
+
+## Arranged grid of 2 plots (not faceted)
+edi_nash_tmap_stops <- tm_shape(stops_med_inc) +
+    tm_sf(col = "pol_stops_cat",
+          title = "Police Stops in Davidson County, TN (2010 - 2018)",
+          palette = palette,
+          style = "quantile",
+          popup.vars = c("Police Stops " = "pol_stops",
+                         "Median Income " = "income_popup"))
+
+edi_nash_tmap_inc <- tm_shape(stops_med_inc) +
+    tm_sf(col = "income_cat",
+          title = "2018 Median Income in Davidson County, TN)",
+          palette = palette,
+          style = "quantile",
+          popup.vars = c("Police Stops " = "pol_stops",
+                         "Median Income " = "income_popup"))
+
+# tmap_arrange(edi_nash_tmap_stops, edi_nash_tmap_inc)
+tmap_arrange(edi_nash_tmap_stops, edi_nash_tmap_inc, nrow = 2, sync = TRUE, asp = NA)
+
+# tmap_save(edi_nash_tmap, filename = "../graphics/stops_medInc_interactive.html")
+
+
+# JUNK ------------------------------------------------------------------------
 
 
 ## ggplot plot
-library(RColorBrewer)
 # library(plotly)
 
-
 # tn_leaf <- st_transform(nash_shape_stops, crs = 4326)
-
 
 # tn_leaf_brks <- tn_leaf %>%
 #     mutate(pol_stops_cat = cut(pol_stops, breaks_qt$brks))
@@ -185,103 +311,37 @@ library(RColorBrewer)
 # ggplotly(gg_nash_stops)
 
 
-## tmap plot
-library(tmap)
-
-palette <- rev(brewer.pal(7, "RdYlGn"))
 
 
-med_inc$income_num <- as.numeric(med_inc$income)
 
-make_list_text_sep <- function(data, col, dig) {
-    brk1 <- paste(round(data$col, dig), "to")
-    print(brk1)
-    # brk2 <- round(data[2:length(data$col), data$col], dig)
+# Adjust bounding box limits of plot
+# xchg <- 0.2
+# ychg <- 0.1
 
-    # concat_brks <- paste(brk1, brk2)
-    # return (concat_brks[1:7])
-}
+# bbox_new <- st_bbox(stops_med_inc)
 
-breaks_qt <- classInt::classIntervals(c(min(med_inc$pol_stops) - .00001,
-                                        med_inc$pol_stops),
-                                      n = 7, style = "quantile", digits = 4)
+# bbox_new[1] <- bbox_new[1] + xchg
+# bbox_new[2] <- bbox_new[2] - ychg
+# bbox_new[3] <- bbox_new[3] - xchg
+# bbox_new[4] <- bbox_new[4] + ychg
 
-breaks_qt_inc <- classInt::classIntervals(c(min(med_inc$income_num) - .00001,
-                                           med_inc$income_num),
-                                          n = 7, style = "quantile", digits = 4)
+# bbox_new <- bbox_new %>%
+#     st_as_sfc()
 
-glimpse(med_inc)
-breaks_qt_inc$brks
-breaks_qt_inc[, "brks"]
-brk1 <- paste(round(breaks_qt_inc$brks, 0), "to")
-brk1 <- paste(round(breaks_qt_inc[, "brks"], 0), "to")
-brk2 <- round(breaks_qt_inc$brks[2:length(breaks_qt_inc$brks)], 0)
-brk1
-brk2
-paste(brk1, brk2)
 
-stop_cat_labels <- make_list_text_sep(breaks_qt, "brks", 0)
+## leaflet from tmap
+# tmap_leaf <- tmap_leaflet(edi_nash_tmap, mode = "view", show = FALSE) %>%
+#     setView(819929, -107329, zoom = 11) %>%
+#     fitBounds(xmin, ymin, xmax, ymax) %>%
+#     clearBounds()
 
-stop_cat_labels <- c(
-    "1 to 33",
-    "33 to 67",
-    "67 to 157",
-    "157 to 552",
-    "552 to 999",
-    "999 to 1,520",
-    "1,520 to 2,861")
+# pacman::p_load(htmlwidgets)
+# tmap_leaf
 
-income_cat_labels <- c(
-    "12128 to 43429",
-    "43429 to 57775",
-    "57775 to 62750",
-    "62750 to 66598",
-    "66598 to 71593",
-    "71593 to 89473",
-    "89473 to 181250")
+# tmap_mode("view")
+# tmap_last()
 
-stops_med_inc <- med_inc %>%
-    mutate(pol_stops_cat = cut(pol_stops, breaks_qt$brks,
-                               labels = stop_cat_labels),
-           income_cat = cut(income_num, breaks_qt_inc$brks,
-                               labels = income_cat_labels)
-    )
 
-stops_med_inc$income_cat <- forcats::fct_rev(stops_med_inc$income_cat)
-
-(edi_nash_tmap <-
-    tm_basemap("OpenStreetMap.Mapnik") +
-    # tm_shape(nash_shape_stops) +
-    tm_shape(stops_med_inc) +
-    # tm_polygons("pol_stops",
-    #             style = "quantile",
-    #             palette = palette,
-    #             title = "Davidson County, TN\nPolice Stops\n2010 - 2018") +
-    tm_sf(col = c("pol_stops_cat", "income_cat"),
-          title = c("Davidson County, TN Police Stops 2010 - 2018",
-                    "Davidson County, TN Median Income 2018"),
-          palette = palette,
-          style = "quantile",
-          popup.vars = c("Police Stops " = "pol_stops",
-                         "Median Income " = "income")) +
-    tm_facets(sync = TRUE, ncol = 2)
-    # tm_layout(legend.format = list(format = "f"))
-)
-
-# tm_shape(tn_leaf_brks) +
-#     tm_polygons("pol_stops_cat",
-#                 style = "quantile",
-#                 palette = palette,
-#                 title = "Davidson County, TN\nPolice Stops\n2010 - 2018")
-
-tmap_mode("view")
-tmap_last()
-
-st_write(stops_med_inc,
-         dsn = "../output/nash_stops_incomes_geo2.gpkg",
-         delete_dsn = F)
-
-tmap_save(edi_nash_tmap, filename = "../graphics/stops_medInc_interactive.html")
 
 # -86°47'6.637", 36°11'13.006" nashville lon, lat
 

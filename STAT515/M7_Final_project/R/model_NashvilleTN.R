@@ -83,6 +83,10 @@ stops_10_18 <- stops %>%
 # summary(stops_10_18)
 glimpse(stops_10_18)
 
+# scale
+# apply(stops_10_18[, c("subject_age", "subject_race", "subject_sex", "contraband_found")],
+#       2, mean)
+
 
 # LDA -------------------------------------------------------------------------
 set.seed(235)
@@ -118,13 +122,13 @@ fit.lda(fmla3, train, test)
 
 
 # QDA -------------------------------------------------------------------------
-set.seed(235)
-train_rows <- sample(1:nrow(stops_10_18), nrow(stops_10_18) * 0.7)
-train <- stops_10_18[train_rows, ]
-test <- stops_10_18[-train_rows, ]
+# set.seed(235)
+# train_rows <- sample(1:nrow(stops_10_18), nrow(stops_10_18) * 0.7)
+# train <- stops_10_18[train_rows, ]
+# test <- stops_10_18[-train_rows, ]
 
-nrow(train)
-nrow(test)
+# nrow(train)
+# nrow(test)
 
 
 fit.qda <- function(fmla, train, test) {
@@ -151,6 +155,7 @@ fit.qda(fmla3, train, test)
 
 
 # Random Forest ---------------------------------------------------------------
+
 fit.RF <- function(data, var_subset) {
     data_subset <- dplyr::select(data, all_of(var_subset)) %>% drop_na()
     set.seed(235)

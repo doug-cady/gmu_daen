@@ -1,0 +1,98 @@
+1 -- _title slide_
+Welcome everybody, I am Doug Cady and this is my final project on police stops in Nashville Tennessee.
+
+Now you might be asking why choose a police stops dataset? Well, you've come to the right place.
+--
+
+2 -- [section] 
+
+3 -- _Why Police Stops?_
+I chose this topic as I believe the US has had and continues to have a overpolicing problem particularly in minority and poorer communities.
+I wanted to try to answer a few questions - are some areas being overpoliced? Is there a racial component to police stops? Do more police stops occur in areas with lower socio-economic status?
+
+The data I found from the Stanford Open Policing Project has a lot of police stop data for cities throughout the United States. I chose the Nashville, Tennessee dataset because it seemed to be more complete with many variables to explore over a long time period of time.  It covers 9 years from 2010 to 2018 and has about 3 million stops (or rows) with 44 columns.  This takes up about 1 gigabyte of storage.
+--
+
+4 -- [section]
+
+5 -- _Additional data sources_
+I added income data through api requests to justicemaps.org. This returned income data by race at the census tract level with latitude and longitude variables to join to the original police stop data.
+
+I grabbed a shapefile from data.nashville.gov that had zip code boundaries for the Davidson county. I can use the sf package to read this shapefile and the tmap package to create interactive choropleth plots.
+
+-> Variables
+--
+
+6 -- [section]
+
+7 -- _Variables_
+We have time-series variables with date and time of the stop, geospatial variables with latitude and longitude. There is also demographic data with the subject age, sex, and race as well as the violation (or reason for stop), the outcome - a warning, citation, or arrest. Lastly, they recorded whether a search was conducted and contraband was found and more specifically drugs or weapons found. The majority of the variables are categorical or logical, not continuous so making a histogram or scatterplot matrix is not viable.
+--
+
+8 -- _Time series_
+First we can look at the time-series aspect of the data, by counting stops by year and month. From the table and the faceted plot we can see that 2019 seems to have many fewer stops than the rest of the years. We will remove this year from our analyses.  We also notice that a few race categories may need to be removed - unknown, NA, and other. They have very little data if at all and we have plenty of records still so we can safely remove them. 
+- Next we will look at the violation variable.
+--
+
+10 -- _violations by sex_
+We can break down violations by the subject's sex.  This plot shows that males are stopped more often than females overall and in most every category except child restraint at the very bottom. The large majority are concentrated in the top 2 two categories.
+--
+
+11 -- _outcomes_
+The data also contains the stop outcome where the options are warning, citation, summons, or arrest. Obviously there were no cases with a summons and most stops ended in a warning with only 22 percent receiving a citation and 2 percent being arrested.
+--
+
+12 -- _outcomes by race_
+Does race play a part in outcomes? The plot on the left provides some insight about this question using facets for the 3 outcome categories, connecting the dots across the race groups. Each point has been scaled using 2019 Nashville census data so now the x axis represents police stops per 1,000 persons. I think this is a good estimate to scale the absolute values but of course not every person stopped by police in a given city actually lives in that city.
+--
+
+13 -- _stops by time of day_
+I've also heard of a study showing discrepancies in stop rates by race between day and night time. From my dataset this doesn't seem to be the case. Black persons were stopped the most regardless of time and had the least percentage change in stops between day and night. However, my day night time definition was crude.
+--
+
+14 -- [section] _modeling_
+
+15 -- _linear discriminant analysis (lda)_
+LDA is similar to logistic regression, but better on multiple-class classification problems like this one where out response variable has 3 classes - warning, citation, arrest.
+I created 3 models to test different predictors. The first model tries the predictors subject age, race, sex, and contraband found. The results show the group means of contraband found, and it seems that you are much more likely to get a citation or be arrested if you are found with contraband.
+--
+
+16 -- _quadratic discriminant analysis_
+QDA is a bit more flexible and better with datasets with more observations where shrinking variance is less of a priority. It had similar results to LDA.
+--
+
+17 -- _random forest_
+Lastly we will try fitting a few random forest models with varying number of predictors from 6 to 9 to 11.  The model with 11 predictors performed the best with an out of bounds error rate around 46%. This is not great as it means our model is no better than a 50-50 guess.  For the last 2 trials with random forest I use the variable importance plot to refine my models dropping variables in the bottom half like subject sex and race. Their performance improves slightly.
+
+18 -- [section]
+
+19 -- _choropleth map_
+Another question I wanted to answer was do poorer communities tend to have more police interaction or more police stops?
+For this I created an interactive choropleth map based on a Davidson Country zipcode shapefile.  The top map shows the number of police stops over a 9 year span by zip code, while the bottom shows the same map with median income as the color variable. I coded the color so that darker means more police stops and poorer zip codes and we can see there is some correlation here, but it's hard to know exactly how strong the relationship is. Also, the comparison is a bit rough as the income numbers are from 2018 while the stops go from 2010 to 2018. The tmap package plots a shapefile read from the sf package and can add any number of basemaps to highlight streets, rivers, terrain, etc. We can zoom, click and drag, and click to see a zip code popup with its particular number of police stops and median income. Hovering our mouse shows the name and zip code.
+--
+
+20 -- [section]
+
+21 -- _(special efforts)_
+The main time sink went to the interactive choropleth plot in finding an R package and shapefile that would work. I tried plotly, ggmap, leaflet and considered Shiny for a moment.  I wanted to put stops and income side by side, so I needed income data for the Nashville region. This required submitting over 1300 get requests in a for loop to an API to get income, latitude, and longitude data.
+--
+
+22 -- [section] _sources_
+
+23 -- _sources_
+Here are my sources.
+
+24 -- (summary)
+In summary I believe this project was definitely a challenge, but a good challenge that motivates you to push through the frustating moments to create truly informative models and graphics.
+--
+
+25 -- (section header)
+In conclusion, my project explored a few of the factors contributing to policing in this country, but only really examined one city over a short period of time.  Next steps would include investigating more factors that may be causing discriminatory practices in policing.
+
+Thank you so much for watching my video everybody!!
+
+Have a wonderful day!
+--
+[][[][]]
+[[][]]: 
+[]: 

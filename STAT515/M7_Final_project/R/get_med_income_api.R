@@ -55,7 +55,7 @@ get_med_inc <- function(df) {
         if (i %% 50 == 0) {
             print(i)
         }
-        # print(i)
+
         lat <- all_lat_lng[i, "lat"][[1]]
         lng <- all_lat_lng[i, "lng"][[1]]
 
