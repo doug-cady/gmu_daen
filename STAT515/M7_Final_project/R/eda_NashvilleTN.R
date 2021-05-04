@@ -74,28 +74,39 @@ levels(stops$outcome)
 filter(stops, year == 2019) %>%
     count(month)
 
+table(stops$year, stops$month)
+
+# table(stops$subject_race, stops$subject_sex)
+
 # 2005 has many fewer stops than the rest of the years.
 # I think we should remove it.
-stops_10_18 <- filter(stops, year < 2019) %>%
+stops_10_18_init <- filter(stops, year < 2019) %>%
+    select(date, year, month, time, lat, lng, subject_age, subject_race,
+           subject_sex, violation, outcome, frisk_performed, search_conducted,
+           contraband_found, contraband_drugs, contraband_weapons)
+
+summary(stops_10_18_init)
+glimpse(mutate(stops_10_18_init, violation = factor(violation)))
+unique(stops_10_18$violation)
+head(stops_10_18$time, 20)
+
+
+stops_10_18 <- stops_10_18_init %>%
     mutate(violation = if_else(violation == "moving traffic violation",
                                "moving traffic\nviolation",
                        if_else(violation == "vehicle equipment violation",
                                "vehicle equipment\nviolation",
-                               violation)))
+                                violation)))
 
-summary(stops_10_18)
-glimpse(stops_10_18)
-unique(stops_10_18$violation)
-head(stops_10_18$time, 20)
 
 ## By subject sex and race
-stops  %>%
-    count(subject_sex, subject_race)
-# 29063 where sex and race are NAs
-# 24 where sex is NA and race is given
+stops_10_18_init  %>%
+    count(subject_sex, subject_race) %>%
+    pivot_wider(names_from = "subject_sex", values_from = "n")
+
 
 ## Stops by year and race
-stops %>%
+stops_10_18_init %>%
     count(year, subject_race) %>%
     # filter(!is.na(subject_race),
     #        subject_race != "unknown") %>%
@@ -232,7 +243,7 @@ pop_2018_fn  <- '../input/tn_nashville_2018_censusPop.xlsx'
 pop_2018 <- read_excel(pop_2018_fn)
 
 
-out_race_2018 <- stops_10_18 %>%
+race_out_2018 <- stops_10_18 %>%
     filter(!is.na(outcome)) %>%
     filter(!is.na(subject_race)) %>%
     filter(!subject_race %in% c('unknown', 'other'),
@@ -252,17 +263,17 @@ out_race_2018 <- stops_10_18 %>%
                                  "asian*" = 1)) %>%
     arrange(outcome, race_int_ord)
 
-out_race_2018$outcome  <- factor(out_race_2018$outcome,
+race_out_2018$outcome  <- factor(race_out_2018$outcome,
                                  levels = c("warning", "citation", "arrest"))
 
-out_race_2018$subject_race <- reorder(out_race_2018$subject_race, -out_race_2018$stops_per_1k)
+race_out_2018$subject_race <- reorder(race_out_2018$subject_race, -race_out_2018$stops_per_1k)
 
 # color palette from rcolorbrewer
-out_race_pal <- brewer.pal(4, "Set1")
+race_out_pal <- brewer.pal(4, "Set1")
 
 # make plot
-gg_outcome_race <-
-    ggplot(data = out_race_2018,
+gg_race_outcome <-
+    ggplot(data = race_out_2018,
            mapping = aes(x = stops_per_1k, y = race_int_ord,
                          color = subject_race)) +
     facet_wrap(outcome ~ ., nrow = 3, strip.position = "top",
@@ -270,7 +281,7 @@ gg_outcome_race <-
     geom_path(color = "gray50") +
     geom_point(size = 5) +
     geom_point(color = "white", size = 1.5) + hw +
-    scale_color_manual(values = out_race_pal) +
+    scale_color_manual(values = race_out_pal) +
     scale_y_continuous(labels = c("black", "white", "hispanic", "asian*"),
                        breaks = c(4, 3, 2, 1),
                        limits = c(0.75, 4.25)) +
@@ -283,11 +294,42 @@ gg_outcome_race <-
           strip.text = element_text(size = 12),
           plot.title = element_text(size = 14))
 
-gg_outcome_race
+gg_race_outcome
 
-ggsave(filename = "../graphics/eda2_outcome_race.png",
+ggsave(filename = "../graphics/eda2_race_facetOutcome.png",
        width = 7, height = 7, units = "in")
 
+
+# outcomes by race (race facet)
+gg_outcome_race_left <-
+    ggplot(data = race_out_2018,
+           mapping = aes(x = stops_per_1k, y = reorder(outcome, stops_per_1k),
+                         color = subject_race)) +
+    facet_wrap(subject_race ~ ., nrow = 4, strip.position = "top") +
+    geom_line(aes(group = subject_race)) +
+    geom_point(size = 5) +
+    geom_point(color = "white", size = 1.5) + hw +
+    scale_color_manual(values = race_out_pal) +
+    labs(x = 'Stops per 1,000 Persons', y = '',
+         title = "2018 Outcomes by Subject Race") +
+         # caption = paste0("Source: Stanford Open Policing Project",
+         #                  "\n*Note: Asian also includes Pacific Islander race")) +
+    theme(legend.position = "none",
+          axis.text = element_text(size = 12),
+          strip.text = element_text(size = 12),
+          plot.title = element_text(size = 14))
+
+gg_outcome_race_left
+
+ggsave(filename = "../graphics/eda2_outcome_facetRace.png",
+       width = 7, height = 7, units = "in")
+
+# Juxtaposed outcome by race plots (*in report*)
+juxta_plots <- grid.arrange(gg_outcome_race_left, gg_race_outcome, ncol = 2)
+
+ggsave(filename = "../graphics/eda2_outcome_race_juxta.png",
+       plot = juxta_plots,
+       width = 10, height = 7, units = "in")
 
 
 ## Violations by sex and outcome ----------------------------------------------
@@ -397,7 +439,7 @@ gg_race_time <- stops_2018_race_night %>%
          subtitle = "Nashville, TN Police Stops from 2010 to 2018",
          caption = paste0("Source: Stanford Open Policing Project",
                           "\nUS Census Bureau 2019 Population Estimates",
-                          "\n\n*Day defined as 7AM - 7:59PM. All group raw stop counts > 1000")) +
+                          "\n\n*Day defined as 7AM - 7:59PM.  All group raw stop counts > 1000.")) +
     theme(axis.text = element_text(size = 11),
           strip.text = element_text(size = 11),
           plot.title = element_text(size = 14),
@@ -406,7 +448,7 @@ gg_race_time <- stops_2018_race_night %>%
 # gg_race_time
 
 ggsave(filename = "../graphics/eda4_race_daynight.png",
-       width = 7, height = 7, units = "in")
+       width = 8, height = 3, units = "in")
 
 # table(stops_2018$subject_race)
 # tail(stops_2018[, c("time", "hour", "stop_night")], 25)

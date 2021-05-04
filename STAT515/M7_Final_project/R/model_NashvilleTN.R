@@ -78,7 +78,7 @@ stops_10_18 <- stops %>%
            subject_sex = factor(subject_sex),
            outcome = factor(outcome)) %>%
     # Narrow feature set a bit removing raw columns
-    dplyr::select(features)
+    dplyr::select(all_of(features))
 
 # summary(stops_10_18)
 glimpse(stops_10_18)
@@ -88,7 +88,7 @@ glimpse(stops_10_18)
 #       2, mean)
 
 
-# LDA -------------------------------------------------------------------------
+# Create train and test datasets ----------------------------------------------
 set.seed(235)
 train_rows <- sample(1:nrow(stops_10_18), nrow(stops_10_18) * 0.7)
 train <- stops_10_18[train_rows, ]
@@ -98,27 +98,33 @@ nrow(train)
 nrow(test)
 
 
+# LDA -------------------------------------------------------------------------
+
+
+
 fit.lda <- function(fmla, train, test) {
+    print(fmla)
+
     lda.fit <- lda(fmla, data = train)
     print(lda.fit)
 
     lda.pred <- predict(lda.fit, test)
 
     print(table(lda.pred$class, test$outcome))
-    print(mean(lda.pred$class == test$outcome, na.rm=TRUE))
+    print(paste0("Test MSE: ", round(mean(lda.pred$class == test$outcome, na.rm=TRUE), 4)))
 }
 
 # Model 1 with variables below (mean 0.4841)
 fmla1 <- outcome ~ subject_age + subject_race + subject_sex + contraband_found
-fit.lda(fmla1, train, test)
+fit.lda(fmla = fmla1, train = train, test = test)
 
 # Model 2 with variables below (mean 0.4662)
 fmla2 <- outcome ~ time + violation + subject_sex + contraband_drugs
-fit.lda(fmla2, train, test)
+fit.lda(fmla = fmla2, train = train, test = test)
 
 # Model 3 with variables below (mean 0.4903)
 fmla3 <- outcome ~ subject_race + subject_sex + frisk_performed + contraband_found
-fit.lda(fmla3, train, test)
+fit.lda(fmla = fmla3, train = train, test = test)
 
 
 # QDA -------------------------------------------------------------------------
