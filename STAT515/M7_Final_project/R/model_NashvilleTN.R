@@ -103,8 +103,6 @@ nrow(test)
 
 # LDA -------------------------------------------------------------------------
 
-
-
 fit.lda <- function(fmla, train, test) {
     print(fmla)
 
@@ -213,7 +211,7 @@ rf.3
 varImpPlot(rf.3, main = "Model 3 = Police RF Model 7 vars")
 
 
-# RF Prototype plot juxtaposed
+# RF Prototype plot juxtaposed ------------------------------------------------
 set.seed(235)
 train_small_rows <- sample(1:nrow(stops_10_18), nrow(stops_10_18) * 0.05)
 train_small <- stops_10_18[train_small_rows, ] %>%
