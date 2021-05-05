@@ -1,0 +1,246 @@
+assignOps                 package:base                 R Documentation
+
+_A_s_s_i_g_n_m_e_n_t _O_p_e_r_a_t_o_r_s
+
+_D_e_s_c_r_i_p_t_i_o_n:
+
+     Assign a value to a name.
+
+_U_s_a_g_e:
+
+     x <- value
+     x <<- value
+     value -> x
+     value ->> x
+     
+     x = value
+     
+_A_r_g_u_m_e_n_t_s:
+
+       x: a variable name (possibly quoted).
+
+   value: a value to be assigned to ‘x’.
+
+_D_e_t_a_i_l_s:
+
+     There are three different assignment operators: two of them have
+     leftwards and rightwards forms.
+
+     The operators ‘<-’ and ‘=’ assign into the environment in which
+     they are evaluated.  The operator ‘<-’ can be used anywhere,
+     whereas the operator ‘=’ is only allowed at the top level (e.g.,
+     in the complete expression typed at the command prompt) or as one
+     of the subexpressions in a braced list of expressions.
+
+     The operators ‘<<-’ and ‘->>’ are normally only used in functions,
+     and cause a search to be made through parent environments for an
+     existing definition of the variable being assigned.  If such a
+     variable is found (and its binding is not locked) then its value
+     is redefined, otherwise assignment takes place in the global
+     environment.  Note that their semantics differ from that in the S
+     language, but are useful in conjunction with the scoping rules of
+     R.  See ‘The R Language Definition’ manual for further details and
+     examples.
+
+     In all the assignment operator expressions, ‘x’ can be a name or
+     an expression defining a part of an object to be replaced (e.g.,
+     ‘z[[1]]’).  A syntactic name does not need to be quoted, though it
+     can be (preferably by backticks).
+
+     The leftwards forms of assignment ‘<- = <<-’ group right to left,
+     the other from left to right.
+
+_V_a_l_u_e:
+
+     ‘value’.  Thus one can use ‘a <- b <- c <- 6’.
+
+_R_e_f_e_r_e_n_c_e_s:
+
+     Becker, R. A., Chambers, J. M. and Wilks, A. R. (1988) _The New S
+     Language_.  Wadsworth & Brooks/Cole.
+
+     Chambers, J. M. (1998) _Programming with Data.  A Guide to the S
+     Language_.  Springer (for ‘=’).
+
+_S_e_e _A_l_s_o:
+
+     ‘assign’ (and its inverse ‘get’), for “subassignment” such as
+     ‘x[i] <- v’, see ‘[<-’; further, ‘environment’.
+
+
+scale_manual              package:ggplot2              R Documentation
+
+_C_r_e_a_t_e _y_o_u_r _o_w_n _d_i_s_c_r_e_t_e _s_c_a_l_e
+
+_D_e_s_c_r_i_p_t_i_o_n:
+
+     These functions allow you to specify your own set of mappings from
+     levels in the data to aesthetic values.
+
+_U_s_a_g_e:
+
+     scale_colour_manual(..., values, aesthetics = "colour", breaks = waiver())
+     
+     scale_fill_manual(..., values, aesthetics = "fill", breaks = waiver())
+     
+     scale_size_manual(..., values, breaks = waiver())
+     
+     scale_shape_manual(..., values, breaks = waiver())
+     
+     scale_linetype_manual(..., values, breaks = waiver())
+     
+     scale_alpha_manual(..., values, breaks = waiver())
+     
+     scale_discrete_manual(aesthetics, ..., values, breaks = waiver())
+     
+_A_r_g_u_m_e_n_t_s:
+
+     ...: Arguments passed on to ‘discrete_scale’
+
+          ‘palette’ A palette function that when called with a single
+              integer argument (the number of levels in the scale)
+              returns the values that they should take (e.g.,
+              ‘scales::hue_pal()’).
+
+          ‘limits’ One of:
+
+                • ‘NULL’ to use the default scale values
+
+                • A character vector that defines possible values of
+                  the scale and their order
+
+                • A function that accepts the existing (automatic)
+                  values and returns new ones
+
+          ‘drop’ Should unused factor levels be omitted from the scale?
+              The default, ‘TRUE’, uses the levels that appear in the
+              data; ‘FALSE’ uses all the levels in the factor.
+
+          ‘na.translate’ Unlike continuous scales, discrete scales can
+              easily show missing values, and do so by default. If you
+              want to remove missing values from a discrete scale,
+              specify ‘na.translate = FALSE’.
+
+          ‘na.value’ If ‘na.translate = TRUE’, what aesthetic value
+              should the missing values be displayed as? Does not apply
+              to position scales where ‘NA’ is always placed at the far
+              right.
+
+          ‘scale_name’ The name of the scale that should be used for
+              error messages associated with this scale.
+
+          ‘name’ The name of the scale. Used as the axis or legend
+              title. If ‘waiver()’, the default, the name of the scale
+              is taken from the first mapping used for that aesthetic.
+              If ‘NULL’, the legend title will be omitted.
+
+          ‘labels’ One of:
+
+                • ‘NULL’ for no labels
+
+                • ‘waiver()’ for the default labels computed by the
+                  transformation object
+
+                • A character vector giving labels (must be same length
+                  as ‘breaks’)
+
+                • A function that takes the breaks as input and returns
+                  labels as output
+
+          ‘guide’ A function used to create a guide or its name. See
+              ‘guides()’ for more information.
+
+          ‘super’ The super class to use for the constructed scale
+
+  values: a set of aesthetic values to map data values to. The values
+          will be matched in order (usually alphabetical) with the
+          limits of the scale, or with ‘breaks’ if provided. If this is
+          a named vector, then the values will be matched based on the
+          names instead. Data values that don't match will be given
+          ‘na.value’.
+
+aesthetics: Character string or vector of character strings listing the
+          name(s) of the aesthetic(s) that this scale works with. This
+          can be useful, for example, to apply colour settings to the
+          ‘colour’ and ‘fill’ aesthetics at the same time, via
+          ‘aesthetics = c("colour", "fill")’.
+
+  breaks: One of:
+
+            • ‘NULL’ for no breaks
+
+            • ‘waiver()’ for the default breaks (the scale limits)
+
+            • A character vector of breaks
+
+            • A function that takes the limits as input and returns
+              breaks as output
+
+_D_e_t_a_i_l_s:
+
+     The functions ‘scale_colour_manual()’, ‘scale_fill_manual()’,
+     ‘scale_size_manual()’, etc. work on the aesthetics specified in
+     the scale name: ‘colour’, ‘fill’, ‘size’, etc. However, the
+     functions ‘scale_colour_manual()’ and ‘scale_fill_manual()’ also
+     have an optional ‘aesthetics’ argument that can be used to define
+     both ‘colour’ and ‘fill’ aesthetic mappings via a single function
+     call (see examples). The function ‘scale_discrete_manual()’ is a
+     generic scale that can work with any aesthetic or set of
+     aesthetics provided via the ‘aesthetics’ argument.
+
+_C_o_l_o_r _B_l_i_n_d_n_e_s_s:
+
+     Many color palettes derived from RGB combinations (like the
+     "rainbow" color palette) are not suitable to support all viewers,
+     especially those with color vision deficiencies. Using ‘viridis’
+     type, which is perceptually uniform in both colour and
+     black-and-white display is an easy option to ensure good
+     perceptive properties of your visulizations. The colorspace
+     package offers functionalities
+
+        • to generate color palettes with good perceptive properties,
+
+        • to analyse a given color palette, like emulating color
+          blindness,
+
+        • and to modify a given color palette for better perceptivity.
+
+     For more information on color vision deficiencies and suitable
+     color choices see the paper on the colorspace package and
+     references therein.
+
+_E_x_a_m_p_l_e_s:
+
+     p <- ggplot(mtcars, aes(mpg, wt)) +
+       geom_point(aes(colour = factor(cyl)))
+     p + scale_colour_manual(values = c("red", "blue", "green"))
+     
+     # It's recommended to use a named vector
+     cols <- c("8" = "red", "4" = "blue", "6" = "darkgreen", "10" = "orange")
+     p + scale_colour_manual(values = cols)
+     
+     # You can set color and fill aesthetics at the same time
+     ggplot(
+       mtcars,
+       aes(mpg, wt, colour = factor(cyl), fill = factor(cyl))
+     ) +
+       geom_point(shape = 21, alpha = 0.5, size = 2) +
+       scale_colour_manual(
+         values = cols,
+         aesthetics = c("colour", "fill")
+       )
+     
+     # As with other scales you can use breaks to control the appearance
+     # of the legend.
+     p + scale_colour_manual(values = cols)
+     p + scale_colour_manual(
+       values = cols,
+       breaks = c("4", "6", "8"),
+       labels = c("four", "six", "eight")
+     )
+     
+     # And limits to control the possible values of the scale
+     p + scale_colour_manual(values = cols, limits = c("4", "8"))
+     p + scale_colour_manual(values = cols, limits = c("4", "6", "8", "10"))
+     
+

@@ -21,9 +21,9 @@ library(readxl) # excel files
 library(ggplot2)
 library(lubridate) # date/time functions
 library(MASS) # LDA, QDA
-library(randomForest)
-source("windows_gui.R")
 source("../../R_source_files/hw.R")
+source("windows_gui.R")
+library(randomForest)
 
 # Load rds data file ----------------------------------------------------------
 stops_fn <- "../input/yg821jf8611_tn_nashville_2020_04_01.rds"
@@ -38,7 +38,9 @@ stops <- as_tibble(readRDS(stops_fn))
 features <- c(
     "year",
     "month",
+    "date",
     "time",
+    "hour",
     "lat",
     "lng",
     "precinct",
@@ -61,7 +63,8 @@ features <- c(
 
 stops_10_18 <- stops %>%
     mutate(year = year(date),
-           month = month(date)) %>%
+           month = month(date),
+           hour = hour(time)) %>%
     filter(year < 2019,
            outcome != 'summons',
            !subject_race %in% c('unknown', 'other')) %>%
@@ -114,15 +117,15 @@ fit.lda <- function(fmla, train, test) {
     print(paste0("Test MSE: ", round(mean(lda.pred$class == test$outcome, na.rm=TRUE), 4)))
 }
 
-# Model 1 with variables below (mean 0.4841)
+# Model 1 with variables below (test mse: 0.4841)
 fmla1 <- outcome ~ subject_age + subject_race + subject_sex + contraband_found
 fit.lda(fmla = fmla1, train = train, test = test)
 
-# Model 2 with variables below (mean 0.4662)
+# Model 2 with variables below (test mse: 0.4662)
 fmla2 <- outcome ~ time + violation + subject_sex + contraband_drugs
 fit.lda(fmla = fmla2, train = train, test = test)
 
-# Model 3 with variables below (mean 0.4903)
+# Model 3 with variables below (test mse: 0.4903)
 fmla3 <- outcome ~ subject_race + subject_sex + frisk_performed + contraband_found
 fit.lda(fmla = fmla3, train = train, test = test)
 
@@ -138,34 +141,40 @@ fit.lda(fmla = fmla3, train = train, test = test)
 
 
 fit.qda <- function(fmla, train, test) {
+    print(fmla)
+
     qda.fit <- qda(fmla, data = train)
     print(qda.fit)
 
     qda.pred <- predict(qda.fit, test)
 
     print(table(qda.pred$class, test$outcome))
-    print(mean(qda.pred$class == test$outcome, na.rm=TRUE))
+    print(paste0("Test MSE: ", round(mean(lda.pred$class == test$outcome, na.rm=TRUE), 4)))
 }
 
-# Model 1 with variables below (mean 0.4869)
+# Model 1 with variables below (test mse: 0.4869)
 fmla1 <- outcome ~ subject_age + subject_race + subject_sex + contraband_found
-fit.qda(fmla1, train, test)
+fit.qda(fmla = fmla1, train = train, test = test)
 
-# Model 2 with variables below (mean 0.4656)
+# Model 2 with variables below (test mse: 0.4656) ** lowest MSE of LDA and QDA models **
 fmla2 <- outcome ~ time + violation + subject_sex + contraband_drugs
-fit.qda(fmla2, train, test)
+fit.qda(fmla = fmla2, train = train, test = test)
 
-# Model 3 with variables below (mean 0.4875)
+# Model 3 with variables below (test mse: 0.4875)
 fmla3 <- outcome ~ subject_race + subject_sex + frisk_performed + contraband_found
-fit.qda(fmla3, train, test)
+fit.qda(fmla = fmla3, train = train, test = test)
+
+# Model 4 with variables below (test mse: 0.4791)
+fmla4 <- outcome ~ hour + violation + subject_sex + contraband_found
+fit.qda(fmla = fmla4, train = train, test = test)
 
 
 # Random Forest ---------------------------------------------------------------
-
 fit.RF <- function(data, var_subset) {
     data_subset <- dplyr::select(data, all_of(var_subset)) %>% drop_na()
     set.seed(235)
-    rf <- randomForest(outcome ~ ., data = data_subset, importance = TRUE)
+    rf <- randomForest(outcome ~ ., data = data_subset, ntree = 500,
+                       importance = TRUE)
 }
 
 # RF model 1 with a subset of 9 predictors and default 2 vars per split, 500 trees
@@ -175,9 +184,9 @@ rf.1.features <- c(
     "violation", "contraband_found", "contraband_drugs",
     "contraband_weapons", "frisk_performed", "outcome"
 )
-rf.1 <- fit.RF(data = stops_10_18, var_subset = rf.1.features)
+rf.1 <- fit.RF(data = train, var_subset = rf.1.features)
 rf.1
-varImpPlot(rf.1, main = "Model 1 = Police RF Model 9 vars")
+varImpPlot(rf.1, main = "Model 1 = Police RF Model 8 vars")
 # subject_sex seems to be less important
 
 
@@ -188,9 +197,9 @@ rf.2.features <- c(
     "violation", "contraband_found", "contraband_drugs",
     "contraband_weapons", "frisk_performed", "outcome"
 )
-rf.2 <- fit.RF(data = stops_10_18, var_subset = rf.2.features)
+rf.2 <- fit.RF(data = train, var_subset = rf.2.features)
 rf.2
-varImpPlot(rf.2, main = "Model 2 = Police RF Model 11 vars")
+varImpPlot(rf.2, main = "Model 2 = Police RF Model 10 vars")
 
 
 # RF model 3 with a subset of 6 predictors
@@ -199,6 +208,40 @@ rf.3.features <- c(
     "year", "month", "time", "subject_age", "subject_race",
     "violation", "contraband_found", "outcome"
 )
-rf.3 <- fit.RF(data = stops_10_18, var_subset = rf.3.features)
+rf.3 <- fit.RF(data = train, var_subset = rf.3.features)
 rf.3
-varImpPlot(rf.3, main = "Model 3 = Police RF Model 6 vars")
+varImpPlot(rf.3, main = "Model 3 = Police RF Model 7 vars")
+
+
+# RF Prototype plot juxtaposed
+set.seed(235)
+train_small_rows <- sample(1:nrow(stops_10_18), nrow(stops_10_18) * 0.05)
+train_small <- stops_10_18[train_small_rows, ] %>%
+    mutate(dt_time = as.POSIXct(time, "%H:%M:%S"))
+
+fit.RF.prox <- function(data, var_subset) {
+    data_subset <- dplyr::select(data, all_of(var_subset)) %>% drop_na()
+    set.seed(235)
+    rf <- randomForest(outcome ~ ., data = data_subset, ntree = 500,
+                       proximity = TRUE)
+}
+
+rf.proto <- fit.RF.prox(data = train_small, var_subset = rf.2.features)
+rf.proto
+
+gg_proto_stops <- ggplot(data = train_small,
+    aes(x = dt_time, y = subject_age)) +
+    geom_hex(bins = 80) + hw +
+    labs(x = "Time (24 hour span)", y = "Subject Age (years)",
+        title = "Police Stops - Outcome Class Prototypes") +
+    facet_wrap(outcome ~ ., nrow = 3, strip.position = "top") +
+    scale_x_datetime(date_labels = ("%l %p"),
+                     date_breaks = "4 hours") +
+    scale_fill_gradient(low = "blue", high = "red") +
+    theme(legend.position = "none")
+
+# gg_proto_stops
+
+ggsave(filename = "../graphics/rf_prototype.png",
+       plot = gg_proto_stops,
+       width = 7, height = 7, units = "in")
