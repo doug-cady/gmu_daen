@@ -2,6 +2,7 @@
 adventofcode.com
 2016 Day 1: no time for a taxicab
 Part 2 (w/ matplotlib animation)
+url: https://adventofcode.com/2016/day/1
 """
 
 from typing import NamedTuple, List
@@ -34,7 +35,7 @@ def get_neg_mod(faceturn: str) -> int:
 
 
 def walk_pt2(moves: List[str]) -> set:
-    """ Walks along street grid and returns total taxicab distance """
+    """Walks along street grid and returns total taxicab distance."""
     x = y = 0
     face = 'N'
     visit_list = [XY(0, 0)]
@@ -83,7 +84,7 @@ def update(num, x, y, line):
 
 
 def plot_path(xs: List[int], ys: List[int], intersect_pt: tuple) -> None:
-    """ Plot path taken by person until intersection happens """
+    """Plot path taken by person until intersection happens."""
     int_x = intersect_pt.x
     int_y = intersect_pt.y
 
@@ -134,7 +135,8 @@ if __name__ == '__main__':
 
     pts_visited, intersect_pt = walk_pt2(INPUT_PATH.split(", "))
 
-    # Added last 10 points so animation and plot will stay on final frame for longer
+    # Added 10 point as end of list, so animation and plot will
+    # show final frame longer
     xs = [pt.x for pt in pts_visited] + [intersect_pt.x]*10
     ys = [pt.y for pt in pts_visited] + [intersect_pt.y]*10
 
