@@ -1,1 +1,3 @@
 Part 1 answer: 917
+
+Part 2 answer: 1,649
