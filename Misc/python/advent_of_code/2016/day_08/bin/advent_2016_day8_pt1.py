@@ -12,11 +12,36 @@ import numpy as np
 from typing import List
 
 
-class Screen():
-    def __init__(self, wide: int, tall: int, proc: str = ""):
-        self.grid = [[0] * wide] * tall
+def test_add_rectangle() -> None:
+    InputScreen = Screen(wide=7, tall=3, proc=test_proced)
+    print("Init:")
+    print(InputScreen)
 
-    # add rectangle part
+    InputScreen.add_rectangle(wide=3, tall=2)
+    print("\nAdded 3x2 rect:")
+    print(InputScreen)
+
+    obs_result = InputScreen.grid
+    exp_result = np.array([['#']*3 + ['.']*4,
+                           ['#']*3 + ['.']*4,
+                           ['.']*7])
+
+    assert np.array_equal(obs_result, exp_result)
+
+
+
+class Screen():
+    def __init__(self, wide: int, tall: int, proc: str = "") -> None:
+        self.grid = np.array([['.'] * wide] * tall)
+
+
+    def __repr__(self) -> str:
+        return '\n'.join(''.join(pix for pix in row) for row in self.grid)
+
+
+    def add_rectangle(self, wide: int, tall: int) -> None:
+        """Turn on all pixels inside rectangle in top-left corner."""
+        self.grid[0:tall, 0:wide] = '#'
 
 
     # def parse_input(self, proc: str) -> List[str]:
@@ -83,9 +108,7 @@ def main() -> int:
     # with open("../data/puz_input_2016_d8_pt1.txt", 'r') as f:
     #     input_proced = f.read()
 
-    InputScreen = Screen(wide=7, tall=3, proc=input_proced)
-    print(*InputScreen.grid, sep='\n')
-    # code = InputPoint.exec_instructions()
+    test_add_rectangle()
 
     return 0
 
