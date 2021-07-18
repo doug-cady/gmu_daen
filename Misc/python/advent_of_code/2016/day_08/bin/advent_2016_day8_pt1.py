@@ -12,19 +12,60 @@ import numpy as np
 from typing import List
 
 
-def test_add_rectangle() -> None:
-    InputScreen = Screen(wide=7, tall=3, proc=test_proced)
+def test_add_rectangle(class_obj) -> None:
     print("Init:")
-    print(InputScreen)
+    print(class_obj)
 
-    InputScreen.add_rectangle(wide=3, tall=2)
+    class_obj.add_rectangle(wide=3, tall=2)
     print("\nAdded 3x2 rect:")
-    print(InputScreen)
+    print(class_obj)
 
-    obs_result = InputScreen.grid
+    obs_result = class_obj.grid
     exp_result = np.array([['#']*3 + ['.']*4,
                            ['#']*3 + ['.']*4,
                            ['.']*7])
+
+    assert np.array_equal(obs_result, exp_result)
+
+
+def test_rotate_col(class_obj) -> None:
+    class_obj.rotate_axis(axis="column", idx=1, pixels=1)
+
+    print("\nRotate column x=1 by 1:")
+    print(class_obj)
+
+    obs_result = class_obj.grid
+    exp_result = np.array([['#'] + ['.'] + ['#'] + ['.']*4,
+                           ['#']*3 + ['.']*4,
+                           ['.'] + ['#'] + ['.']*5])
+
+    assert np.array_equal(obs_result, exp_result)
+
+
+def test_rotate_row(class_obj) -> None:
+    class_obj.rotate_axis(axis="row", idx=0, pixels=4)
+
+    print("\nRotate row y=0 by 4:")
+    print(class_obj)
+
+    obs_result = class_obj.grid
+    exp_result = np.array([['.']*4 + ['#'] + ['.'] + ['#'],
+                           ['#']*3 + ['.']*4,
+                           ['.'] + ['#'] + ['.']*5])
+
+    assert np.array_equal(obs_result, exp_result)
+
+
+def test_rotate_col_2(class_obj) -> None:
+    class_obj.rotate_axis(axis="column", idx=1, pixels=1)
+
+    print("\nRotate column x=1 by 1:")
+    print(class_obj)
+
+    obs_result = class_obj.grid
+    exp_result = np.array([['.'] + ['#'] + ['.']*2 + ['#'] + ['.'] + ['#'],
+                           ['#'] + ['.'] + ['#'] + ['.']*4,
+                           ['.'] + ['#'] + ['.']*5])
 
     assert np.array_equal(obs_result, exp_result)
 
@@ -33,6 +74,9 @@ def test_add_rectangle() -> None:
 class Screen():
     def __init__(self, wide: int, tall: int, proc: str = "") -> None:
         self.grid = np.array([['.'] * wide] * tall)
+        self.grid_width = wide
+        self.grid_tall = tall
+        self.proc = proc
 
 
     def __repr__(self) -> str:
@@ -44,53 +88,40 @@ class Screen():
         self.grid[0:tall, 0:wide] = '#'
 
 
-    # def parse_input(self, proc: str) -> List[str]:
-    #     """Split input procedure on newlines to return a list of instructions."""
-    #     return [e.strip() for e in proc.split('\n') if e != '']
+    def rotate_axis(self, axis: str, idx: int, pixels: int) -> None:
+        """Rotate row / column by a number of pixels."""
+        if axis == "column":
+            new_order = (np.array(range(0, self.grid_tall)) - pixels) % self.grid_tall
+            self.grid[:, idx] = self.grid[new_order, idx]
+        else:
+            new_order = (np.array(range(0, self.grid_width)) - pixels) % self.grid_width
+            self.grid[idx, :] = self.grid[idx, new_order]
 
 
-    # def make_beg_keypad(self, nums: int) -> List[List[int]]:
-    #     """Creates a matrix of n consecutive numbers across rows and returns a matrix."""
-    #     keypad_nums = list(range(1, nums + 1))
-    #     beg_keypad = [keypad_nums[i:i + self.keyrows]
-    #                   for i in range(0, len(keypad_nums), self.keyrows)]
-    #     return beg_keypad
+    def parse_input(self, proc: str) -> List[str]:
+        """Split input procedure on newlines to return a list of instructions."""
+        return [e.strip() for e in proc.split('\n') if e != '']
 
 
-    # def move(self, instr: str) -> None:
-    #     """Updates rows and cols by processing next instruction."""
-    #     dirs = {
-    #         'U': np.array([-1, 0]),
-    #         'D': np.array([1, 0]),
-    #         'R': np.array([0, 1]),
-    #         'L': np.array([0, -1]),
-    #     }
-    #     next_move = np.array([self.row, self.col]) + dirs[instr]
+    def exec_instructions(self) -> int:
+        """Execute instructions in loop and move accordingly."""
+        instructions = self.parse_input(proc=self.proc)
+        print(self.__repr__())
 
-    #     if self.is_valid(next_move=next_move):
-    #         self.row, self.col = next_move
+        for instruction in instructions:
+            print(f"\n{instruction}:")
+            tokens = instruction.split(' ')
+            if tokens[0] == "rect":
+                wide, tall = [int(token) for token in tokens[1].split('x')]
+                self.add_rectangle(wide=wide, tall=tall)
+            else:
+                idx = int(tokens[2].split('=')[-1])
+                pixels = int(tokens[4])
+                self.rotate_axis(axis=tokens[1], idx=idx, pixels=pixels)
 
+            print(self.__repr__())
 
-    # def is_valid(self, next_move: np.array) -> bool:
-    #     """Identifies if next button instruction is a valid move within keypad dims."""
-    #     row, col = next_move
-    #     if (0 <= row <= self.keyrows - 1) & (0 <= col <= self.keyrows - 1):
-    #         return True
-    #     else:
-    #         return False
-
-
-    # def exec_instructions(self) -> str:
-    #     """Execute instructions in loop and move accordingly."""
-    #     bathroom_code = ""
-
-    #     for line in self.proc_list:
-    #         for instr in line:
-    #             self.move(instr=instr)
-
-    #         bathroom_code += str(self.keypad[self.row][self.col])
-
-    #     return bathroom_code
+        return sum(sum(np.char.count(self.grid, '#')))
 
 
 test_proced = """rect 3x2
@@ -102,13 +133,17 @@ rotate column x=1 by 1"""
 # Main ------------------------------------------------------------------------
 def main() -> int:
     # Test puzzle input
-    input_proced = test_proced
+    # input_proced = test_proced
+    # InputScreen = Screen(wide=7, tall=3, proc=test_proced)
+
 
     # Final puzzle input
-    # with open("../data/puz_input_2016_d8_pt1.txt", 'r') as f:
-    #     input_proced = f.read()
+    with open("../data/puz_input_2016_d8_pt1.txt", 'r') as f:
+        input_proced = f.read()
 
-    test_add_rectangle()
+    InputScreen = Screen(wide=50, tall=6, proc=input_proced)
+    lit_pixels = InputScreen.exec_instructions()
+    print(lit_pixels)
 
     return 0
 
