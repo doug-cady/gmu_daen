@@ -37,7 +37,7 @@ def decompress_marker(rem_proc: str) -> Tuple[str, int]:
     skip_2_parens_len = 2
     idx_add = skip_2_parens_len + rem_proc.index(')') + int(rept_next_n)
 
-    return ''.join([rept_chars]*int(rept_num)), idx_add
+    return ''.join([rept_chars] * int(rept_num)), idx_add
 
 
 def parse_instructions(proc: str) -> str:
@@ -54,14 +54,13 @@ def parse_instructions(proc: str) -> str:
             decomp_msg = decomp_msg + proc[idx]
             idx += 1
 
-    print(" >", decomp_msg)
     return decomp_msg
 
 
 
 # Main ------------------------------------------------------------------------
 def main() -> int:
-    # decomp_msg = test_parse_instructions()
+    test_parse_instructions()
 
     # Final puzzle input
     with open("../data/puz_input_2016_d9_pt1.txt", 'r') as f:
