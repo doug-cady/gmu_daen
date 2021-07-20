@@ -1,8 +1,8 @@
 """
 Advent of Code 2016
-Day 9: Explosives in Cyberspace [Part 2]
+Day 10: Balance Bots [Part 1]
 
-url: https://adventofcode.com/2016/day/9
+url: https://adventofcode.com/2016/day/10
 
 """
 
@@ -65,10 +65,12 @@ def parse_instructions(proc: str) -> str:
             final_len += decomp_len
             idx = 0
         else:
-            final_len += 1
+            final_len += 1impo
             msg = msg[1:]
 
+    print("final_len:", final_len)
     return final_len
+
 
 
 # Main ------------------------------------------------------------------------
@@ -76,11 +78,11 @@ def main() -> int:
     decomp_msg = test_parse_instructions()
 
     # Final puzzle input
-    with open("../data/puz_input_2016_d9_pt1.txt", 'r') as f:
-        input_proc = f.read().strip(' ').strip('\n')
+    # with open("../data/puz_input_2016_d9_pt1.txt", 'r') as f:
+    #     input_proc = f.read().strip(' ').strip('\n')
 
-    decomp_len = parse_instructions(proc=input_proc)
-    print(f"Length: {decomp_len}")
+    # decomp_len = parse_instructions(proc=input_proc)
+    # print(f"Length: {decomp_len:,}")
 
     return 0
 
