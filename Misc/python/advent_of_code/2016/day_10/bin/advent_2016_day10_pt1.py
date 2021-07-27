@@ -6,7 +6,6 @@ url: https://adventofcode.com/2016/day/10
 
 """
 
-import pytest
 import sys
 import numpy as np
 from math import prod
