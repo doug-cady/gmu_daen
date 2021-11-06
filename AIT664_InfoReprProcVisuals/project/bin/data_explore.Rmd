@@ -1,0 +1,96 @@
+---
+title: "Human Freedom Index and Suicides Project"
+subtitle: "Part 2: Data Exploration"
+author: "Doug Cady"
+date: "November 6, 2021"
+output:
+    html_document:
+        toc: true
+        theme: simplex
+        highlight: tango
+    pdf_document:
+        toc: true
+    github_document:
+        toc: true
+---
+
+
+```{r packs, results = 'hide'}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+```
+
+
+## Load datasets into R
+
+```{r data, results = 'hide', message = FALSE}
+suicides <- read_csv("../data/suicide_rates.csv")
+hfi <- read_csv("../data/hfi_cc_2018.csv")
+```
+
+
+## Explore Suicides dataset
+#### This is the initial dataset format when R loads it into its program, but we need to change the type of several of these to a factor (categorical) format.
+
+```{r}
+print(summary(suicides))
+```
+
+### Updated format with factor and numeric variables
+- 4 factor variables - country, year, sex, age
+- 4 numeric - suicides, population, suicides per 100k, gdp per capita
+
+```{r}
+suic_fmt <- suicides %>%
+    mutate(country = factor(country),
+           year = factor(year),
+           sex = factor(sex),
+           age = factor(age),
+           suicides_p100k = `suicides/100k pop`,
+           gdp_per_capita = `gdp_per_capita ($)`) %>%
+    select(country, year, sex, age, suicides_no, population, suicides_p100k, gdp_per_capita)
+
+print(summary(suic_fmt))
+```
+#### We can see a few things with this summary
+- No NAs, no missing values
+- Each of the 4 numeric variables have a heavy right skew (mean > median); we can see this more clearly with histograms (see next page)
+
+
+### Head / Tail of Data
+```{r}
+print(head(suic_fmt))
+print(tail(suic_fmt))
+```
+
+
+### Variable Distributions
+I first tried a regular histogram for the variable `suicide_no`, but there is such a pronounced
+right skew that applying a log to the x axis made sense.  I believe population, suicides_p100k,
+and gdp per capita might have a similar problem in viewing the distribution with no transformations
+applied.
+
+```{r, message = FALSE, warning = FALSE}
+plot_params <- c(
+    "Suicides" = suicides_no,
+    "Population" = population,
+    "Suicides_Per100k" = suicides_p100k,
+    "GDP_Per_Capita" = gdp_per_capita
+)
+
+# make_hist <- function() {}
+
+gg_suic <- ggplot(suic_fmt) +
+    geom_histogram(aes(x = log(suicides_no), y = ..density..)) +
+    labs(xlab = "Suicides", ylab = "Frequency") +
+    geom_density(aes(x = log(suicides_no)))
+
+gg_pop <- ggplot(suic_fmt) +
+    geom_histogram(aes(x = log(population), y = ..density..)) +
+    labs(xlab = "Population", ylab = "Frequency") +
+    geom_density(aes(x = log(population)))
+```
+
+unique(suic_fmt$suicides_no)
