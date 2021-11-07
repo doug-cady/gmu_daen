@@ -68,6 +68,11 @@ print(tail(suic_fmt))
 # work on moving to Rmd markdown file to show output/plots as we go along.
 
 
+# Using get() to pass strings as column names:
+# var1 = "wt"
+# var2 = "mpg"
+# p <- ggplot(data=mtcars, aes(get(var1), get(var2)))
+# p + geom_point()
 
 
 print(str(hfi))
