@@ -1,0 +1,211 @@
+---
+title: "Human Freedom Index and Suicides Project"
+subtitle: "Part 2: Data Exploration with HFI Dataset"
+author: "Doug Cady"
+date: "November 9, 2021"
+output:
+    html_document:
+        toc: true
+        theme: simplex
+        highlight: tango
+    pdf_document:
+        toc: true
+    github_document:
+        toc: true
+---
+
+R version 4.1.1 "Kick Things"
+
+```{r packs, results = 'hide'}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(stringr)
+library(ggplot2)
+library(GGally)
+library(gridExtra)
+library(plotly)
+```
+
+
+## Load dataset into R
+
+```{r data, results = 'hide', message = FALSE}
+hfi <- read_csv("../data/hfi_cc_2018.csv")
+```
+
+
+## Explore HFI dataset
+#### Questions to answer:
+* Are the freedom score, number of suicides per 100k, and gdp per capita related?
+    + Find correlations, make 3 scatter pair plots
+* Does population size impact freedom?
+* Does female freedom scores relate to female suicide rates?
+* What are important factors that contribute to human freedom?
+    + Linear regression model
+
+
+#### Hypotheses:
+* Countries with high female freedom scores will have less than average female suicide rates
+
+    Ho: mean suicide rates lo female freedom >= average female suicide rate
+
+    Ha: mean suicide rates hi female freedom < average female suicide rate
+
+    + `pf_ss_women_fgm` - Female genital mutilation
+    + `pf_ss_women_missing` - ??
+    + `pf_ss_women_inheritance_widows` - Equal inheritance rights for widows
+    + `pf_ss_women_inheritance_daughters` - Equal inheritance rights for daughters
+    + `pf_movement_women` - Freedom of movement for women
+    + `pf_identity_sex_female` - Female to female relationships
+    + `pf_identity_divorce` - Divorce
+    + Perhaps educational opportunity or abortion access should be included here as well?
+* Countries with smaller populations will have more freedom
+
+    Ho: mu~freedom_small_population - mu~freedom_large_population <= 0
+
+    Ha: mu~freedom_small_population - mu~freedom_large_population > 0
+
+    + `hfi_score` - Overall Human Freedom Index score
+    + `population` - (suicides dataset) country population
+
+
+#### Column Descriptions
+There are many, many columns in this dataset, so let us focus on a few columns
+* 3 categorical variables
+    + `country`
+    + `ISO_code` (country abbreviation)
+    + `region`
+* 119 numeric (subset focus)
+    + Freedom indicators and their aggregate category scores, like
+        - Female genital mutilation and inheritance rights (widows, daughters) make up 3 columns
+        and are aggregated into one category score Women''s security and safety
+* 1 time-series
+    + `year`
+
+```{r}
+print(str(hfi))
+```
+
+### Update format with factor and numeric variables
+- 3 categorical variables - country, sex, age
+- 4 numeric - suicides, population, suicides per 100k, gdp per capita
+- 1 time-series - year
+
+```{r}
+age_levels <- c("5-14", "15-24", "25-34", "35-54", "55-74", "75+")
+
+suic_fmt <- suicides %>%
+    mutate(country = factor(country),
+           year = year,
+           sex = factor(sex),
+           age = factor(str_replace(age, " years", ""), levels = age_levels),
+           suicides_p100k = `suicides/100k pop`,
+           gdp_per_capita = `gdp_per_capita ($)`) %>%
+    select(country, year, sex, age, suicides_no, population, suicides_p100k, gdp_per_capita)
+
+print(summary(suic_fmt))
+```
+#### Data Summary
+- No NAs, thus no missing values
+- Each of the 4 numeric variables have a heavy right skew (mean > median):
+    + We can see this more clearly visually with histograms (see next page)
+    + Log transformations are required to see variable distributions
+
+
+### Head / Tail of Data
+Nothing out of the ordinary here. It seems like we read in the whole file and do not need to skip
+any header or footer miscellaneous data.
+```{r}
+print(head(suic_fmt))
+print(tail(suic_fmt))
+```
+
+
+### Further investigate high suicide counts
+Sorting by suicide counts descending tells us that Russian men age 35-54 had the highest
+suicide raw counts around the 1990s to early 2000s, but this is not scaled by population yet.
+If we instead look at suicides per 100k persons, will the same trend appear?
+```{r}
+high_suicides <- suic_fmt %>%
+    filter(suicides_no > 1000) %>%
+    arrange(desc(suicides_no)) %>%
+    print()
+```
+
+#### Suicides per 100k persons
+Russian men are no longer at the top of list, so it may have been due to their large population
+that so many suicides occurred.  In both of these lists I see only male persons that are older
+as well, so maybe sex or age plays a factor here.
+```{r}
+suic_fmt %>%
+    arrange(desc(suicides_p100k)) %>%
+    print()
+
+# We can also look at the quantile breakdown for suicides per 100k persons:
+quantile(suic_fmt$suicides_p100k, probs = seq(0, 1, 1/10))
+
+# A boxplot can show us visually that the rates are pretty low except for some high outliers
+boxplot(suic_fmt$suicides_p100k)
+```
+
+#### Suicides per 100k persons vs Age by Sex
+Does sex or age contribute to historic suicide rates?
+Yes, it does seem like suicides are more common among men than women and elderly vs young folks,
+though this plot contains 30 years of data for over 100 countries.
+```{r}
+ggplot(suic_fmt) +
+    geom_jitter(aes(x = sex, y = suicides_p100k, color = sex),
+                alpha = 0.2) +
+    facet_grid( ~ age)
+```
+
+
+### Variable Distributions
+I first tried a regular histogram for the variable `suicide_no`, but there is such a pronounced
+right skew that applying a log to the x axis made sense.  I believe `population`,
+`suicides per 100k`, and `gdp per capita` might have a similar problem in viewing their
+distributions with no transformations applied.
+
+I created a log histogram and density plot function to help in making these 4 plots. The `get()`
+function can give ggplot the correct column name from an input "string" column name. If I was
+using Python, I would have created a dictionary and looped over it to get the column and axis
+labels, but R makes this process harder.
+
+```{r, message = FALSE, warning = FALSE}
+make_hist <- function(xlab, col) {
+    ggplot(suic_fmt) +
+        geom_histogram(aes(x = log(get(col)), y = ..density..)) +
+        geom_density(aes(x = log(get(col)))) +
+        labs(x = xlab, y = "Frequency")
+}
+
+h1 <- make_hist(xlab = "log(Suicides)", col = "suicides_no")
+h2 <- make_hist(xlab = "log(Population)", col = "population")
+h3 <- make_hist(xlab = "log(Suicides_Per100k)", col = "suicides_p100k")
+h4 <- make_hist(xlab = "log(GDP_Per_Capita)", col = "gdp_per_capita")
+
+grid.arrange(h1, h2, h3, h4, ncol = 2)
+```
+
+
+### Time-series trends
+Lastly, I would like to take a look at the `year` variable to see if there is any time-series
+trends at play.
+
+```{r timeseries_fig, fig.height = 7, fig.width = 10, message = FALSE}
+suic_totals <- suic_fmt %>%
+    select(year, country, suicides_no, population) %>%
+    group_by(year, country) %>%
+    summarize(total_suicides = sum(suicides_no),
+              total_pop = sum(population),
+              total_suicides_p100k = total_suicides / total_pop * 100000)
+
+# We are missing data from some years for some countries
+# Show table of year, country, suicide rates
+# pivot_longer(suic_totals, year,
+
+ggplotly(ggplot(suic_totals) +
+    geom_line(aes(x = year, y = total_suicides_p100k, color = country, group = country),
+              alpha = 0.3, show.legend = FALSE))
+```
