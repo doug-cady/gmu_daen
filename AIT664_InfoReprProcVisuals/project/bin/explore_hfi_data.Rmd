@@ -16,15 +16,14 @@ output:
 
 R version 4.1.1 "Kick Things"
 
-```{r packs, results = 'hide'}
+```{r packs, results = 'hide', message = FALSE}
 library(readr)
 library(dplyr)
 library(tidyr)
 library(stringr)
 library(ggplot2)
 library(GGally)
-library(gridExtra)
-library(plotly)
+# library(plotly)
 ```
 
 
@@ -36,7 +35,7 @@ hfi <- read_csv("../data/hfi_cc_2018.csv")
 
 
 ## Explore HFI dataset
-#### Questions to answer:
+### Questions to answer:
 * Are the freedom score, number of suicides per 100k, and gdp per capita related?
     + Find correlations, make 3 scatter pair plots
 * Does population size impact freedom?
@@ -45,33 +44,34 @@ hfi <- read_csv("../data/hfi_cc_2018.csv")
     + Linear regression model
 
 
-#### Hypotheses:
-* Countries with high female freedom scores will have less than average female suicide rates
+### Hypotheses:
+1. Countries with high female freedom scores will have less than average female suicide rates
 
     Ho: mean suicide rates lo female freedom >= average female suicide rate
 
     Ha: mean suicide rates hi female freedom < average female suicide rate
 
     + `pf_ss_women_fgm` - Female genital mutilation
-    + `pf_ss_women_missing` - ??
-    + `pf_ss_women_inheritance_widows` - Equal inheritance rights for widows
-    + `pf_ss_women_inheritance_daughters` - Equal inheritance rights for daughters
+    + `pf_ss_women_inheritance` - Equal inheritance rights for widows and daughters
     + `pf_movement_women` - Freedom of movement for women
     + `pf_identity_sex_female` - Female to female relationships
     + `pf_identity_divorce` - Divorce
     + Perhaps educational opportunity or abortion access should be included here as well?
-* Countries with smaller populations will have more freedom
+2. Countries with smaller populations will have more freedom
 
-    Ho: mu~freedom_small_population - mu~freedom_large_population <= 0
+    Ho: mean freedom small population - mean freedom large population <= 0
 
-    Ha: mu~freedom_small_population - mu~freedom_large_population > 0
+    Ha: mean freedom small population - mean freedom large population > 0
 
-    + `hfi_score` - Overall Human Freedom Index score
+    + `hf_score` - Overall Human Freedom Index score
     + `population` - (suicides dataset) country population
 
 
-#### Column Descriptions
+### Column Descriptions
 There are many, many columns in this dataset, so let us focus on a few columns
+
+* 1 time-series variable
+    + `year`
 * 3 categorical variables
     + `country`
     + `ISO_code` (country abbreviation)
@@ -79,133 +79,103 @@ There are many, many columns in this dataset, so let us focus on a few columns
 * 119 numeric (subset focus)
     + Freedom indicators and their aggregate category scores, like
         - Female genital mutilation and inheritance rights (widows, daughters) make up 3 columns
-        and are aggregated into one category score Women''s security and safety
-* 1 time-series
-    + `year`
+        and are aggregated into one category score - Female security and safety
+
 
 ```{r}
-print(str(hfi))
-```
+categ_cols <- c(
+    "year",
+    "country",
+    "region"
+)
 
-### Update format with factor and numeric variables
-- 3 categorical variables - country, sex, age
-- 4 numeric - suicides, population, suicides per 100k, gdp per capita
-- 1 time-series - year
+focus_cols <- c(
+    "pf_ss_women_fgm",
+    "pf_ss_women_inheritance",
+    "pf_movement_women",
+    "pf_identity_sex_female",
+    "pf_identity_divorce",
+    "pf_score",
+    "ef_score",
+    "hf_score"
+)
 
-```{r}
-age_levels <- c("5-14", "15-24", "25-34", "35-54", "55-74", "75+")
 
-suic_fmt <- suicides %>%
+# Look at focus subset of columns and update categoricals to factor type
+hfi_focus <- rename(hfi, country = countries) %>%
     mutate(country = factor(country),
-           year = year,
-           sex = factor(sex),
-           age = factor(str_replace(age, " years", ""), levels = age_levels),
-           suicides_p100k = `suicides/100k pop`,
-           gdp_per_capita = `gdp_per_capita ($)`) %>%
-    select(country, year, sex, age, suicides_no, population, suicides_p100k, gdp_per_capita)
+           region = factor(region))
+hfi_focus <- hfi_focus[, str_c(c(categ_cols, focus_cols))]
 
-print(summary(suic_fmt))
+
+print(str(hfi_focus))
 ```
-#### Data Summary
-- No NAs, thus no missing values
-- Each of the 4 numeric variables have a heavy right skew (mean > median):
-    + We can see this more clearly visually with histograms (see next page)
-    + Log transformations are required to see variable distributions
-
 
 ### Head / Tail of Data
 Nothing out of the ordinary here. It seems like we read in the whole file and do not need to skip
 any header or footer miscellaneous data.
 ```{r}
-print(head(suic_fmt))
-print(tail(suic_fmt))
+print(head(hfi_focus))
+print(tail(hfi_focus))
 ```
 
 
-### Further investigate high suicide counts
-Sorting by suicide counts descending tells us that Russian men age 35-54 had the highest
-suicide raw counts around the 1990s to early 2000s, but this is not scaled by population yet.
-If we instead look at suicides per 100k persons, will the same trend appear?
-```{r}
-high_suicides <- suic_fmt %>%
-    filter(suicides_no > 1000) %>%
-    arrange(desc(suicides_no)) %>%
-    print()
-```
-
-#### Suicides per 100k persons
-Russian men are no longer at the top of list, so it may have been due to their large population
-that so many suicides occurred.  In both of these lists I see only male persons that are older
-as well, so maybe sex or age plays a factor here.
-```{r}
-suic_fmt %>%
-    arrange(desc(suicides_p100k)) %>%
-    print()
-
-# We can also look at the quantile breakdown for suicides per 100k persons:
-quantile(suic_fmt$suicides_p100k, probs = seq(0, 1, 1/10))
-
-# A boxplot can show us visually that the rates are pretty low except for some high outliers
-boxplot(suic_fmt$suicides_p100k)
-```
-
-#### Suicides per 100k persons vs Age by Sex
-Does sex or age contribute to historic suicide rates?
-Yes, it does seem like suicides are more common among men than women and elderly vs young folks,
-though this plot contains 30 years of data for over 100 countries.
-```{r}
-ggplot(suic_fmt) +
-    geom_jitter(aes(x = sex, y = suicides_p100k, color = sex),
-                alpha = 0.2) +
-    facet_grid( ~ age)
-```
-
-
-### Variable Distributions
-I first tried a regular histogram for the variable `suicide_no`, but there is such a pronounced
-right skew that applying a log to the x axis made sense.  I believe `population`,
-`suicides per 100k`, and `gdp per capita` might have a similar problem in viewing their
-distributions with no transformations applied.
-
-I created a log histogram and density plot function to help in making these 4 plots. The `get()`
-function can give ggplot the correct column name from an input "string" column name. If I was
-using Python, I would have created a dictionary and looped over it to get the column and axis
-labels, but R makes this process harder.
-
+### Distribution of Scores - Personal, Economic, Overall Human Freedom
 ```{r, message = FALSE, warning = FALSE}
-make_hist <- function(xlab, col) {
-    ggplot(suic_fmt) +
-        geom_histogram(aes(x = log(get(col)), y = ..density..)) +
-        geom_density(aes(x = log(get(col)))) +
-        labs(x = xlab, y = "Frequency")
-}
+score_cols <- c("pf_score", "ef_score", "hf_score")
+scores <- hfi_focus %>%
+    pivot_longer(cols = score_cols, names_to = "freedom", values_to = "score")
+scores <- scores[, str_c(c(categ_cols, "freedom", "score"))]
 
-h1 <- make_hist(xlab = "log(Suicides)", col = "suicides_no")
-h2 <- make_hist(xlab = "log(Population)", col = "population")
-h3 <- make_hist(xlab = "log(Suicides_Per100k)", col = "suicides_p100k")
-h4 <- make_hist(xlab = "log(GDP_Per_Capita)", col = "gdp_per_capita")
+scores$freedom <- recode_factor(scores$freedom, "pf_score" = "Personal",
+                                                "ef_score" = "Economic",
+                                                "hf_score" = "Overall")
 
-grid.arrange(h1, h2, h3, h4, ncol = 2)
+# Freedom distribution
+ggplot(scores) +
+    geom_density(aes(x = score, color = freedom, fill = freedom), alpha = 0.3) +
+    labs(x = '', y = 'Density', title = 'Score Distribution Comparison', color = '', fill = '') +
+    scale_x_continuous(limits = c(2, 10))
 ```
 
+##### Personal freedom scores are more spread out than economic or overall freedom scores. Very few countries have scores below 4. The majority of economic scores fall between 6 and 8, lower than many countries' personal freedom scores.
 
-### Time-series trends
-Lastly, I would like to take a look at the `year` variable to see if there is any time-series
-trends at play.
 
-```{r timeseries_fig, fig.height = 7, fig.width = 10, message = FALSE}
-suic_totals <- suic_fmt %>%
-    select(year, country, suicides_no, population) %>%
-    group_by(year, country) %>%
-    summarize(total_suicides = sum(suicides_no),
-              total_pop = sum(population),
-              total_suicides_p100k = total_suicides / total_pop * 100000)
+### Women Freedom
+```{r}
 
-# We are missing data from some years for some countries
-# Show table of year, country, suicide rates
-# pivot_longer(suic_totals, year,
+women_freedom_cols <- c(
+    "pf_ss_women_fgm",
+    "pf_ss_women_inheritance",
+    "pf_movement_women",
+    "pf_identity_sex_female",
+    "pf_identity_divorce")
 
-ggplotly(ggplot(suic_totals) +
-    geom_line(aes(x = year, y = total_suicides_p100k, color = country, group = country),
-              alpha = 0.3, show.legend = FALSE))
+women_freedom_init <- hfi_focus[, str_c(c(categ_cols, women_freedom_cols))]
+summary(women_freedom_init)
+```
+
+#### Missing values
+The 5 women freedom variables have at least 5% missing values with Divorce having almost 60%:
+
+* `pf_ss_women_fgm` - Female genital mutilation - 11.8% missing
+* `pf_ss_women_inheritance` - Female inheritance - 8.2%
+* `pf_movement_women` - Women movement - 9.7%
+* `pf_identity_sex_female` - Female to female relationships - 5.5%
+* `pf_identity_divorce` - Divorce - 59.9%
+
+```{r, message = FALSE}
+sapply(women_freedom_init,
+       function(x) paste0(round(sum(is.na(x)) / nrow(women_freedom_init) * 100, 1), "%"))
+
+# What to do about Divorce missing values? Impute? Interpolate? Remove?
+# Instead, we can average the 5 women freedom columns together and then remove the columns
+# with NAs - equal to the minimum NA% from the individual columns (5.5%)
+women_freedom_init$avg_women_score <- rowMeans(select(women_freedom_init, women_freedom_cols),
+                                               na.rm = TRUE)
+
+women_freedom <- women_freedom_init[!is.na(women_freedom_init$avg_women_score),
+                                    c("year", "country", "region", "avg_women_score")]
+
+ggplot(women_freedom) + geom_histogram(aes(x = avg_women_score))
 ```
