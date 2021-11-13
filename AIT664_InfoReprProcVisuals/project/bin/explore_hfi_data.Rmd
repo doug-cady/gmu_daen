@@ -76,7 +76,7 @@ There are many, many columns in this dataset, so let us focus on a few columns
     + `country`
     + `ISO_code` (country abbreviation)
     + `region`
-* 119 numeric (subset focus)
+* 119 numeric (narrowed down to only a handful)
     + Freedom indicators and their aggregate category scores, like
         - Female genital mutilation and inheritance rights (widows, daughters) make up 3 columns
         and are aggregated into one category score - Female security and safety
@@ -106,7 +106,7 @@ hfi_focus <- rename(hfi, country = countries) %>%
     mutate(country = factor(country),
            region = factor(region))
 hfi_focus <- hfi_focus[, str_c(c(categ_cols, focus_cols))]
-
+write_csv(hfi_focus, "../data/clean_hfi_2018.csv")
 
 print(str(hfi_focus))
 ```

@@ -1,0 +1,203 @@
+---
+title: "Human Freedom Index and Suicides Project"
+subtitle: "Part 2: Data Joining and Modeling"
+author: "Doug Cady"
+date: "November 13, 2021"
+output:
+    html_document:
+        toc: true
+        theme: simplex
+        highlight: tango
+    pdf_document:
+        toc: true
+    github_document:
+        toc: true
+---
+
+R version 4.1.1 "Kick Things"
+
+```{r packs, results = 'hide', message = FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(psych)
+# library(stringr)
+# library(GGally)
+# library(plotly)
+```
+
+
+## Load datasets into R
+
+```{r data, results = 'hide', message = FALSE}
+hfi <- read_csv("../data/clean_hfi_2018.csv")
+suicides <- read_csv("../data/clean_suicides.csv")
+```
+
+
+## Join datasets on `year` and `country` variables
+```{r initial_join}
+# How many countries in each dataset?
+hfi_countries <- unique(hfi$country)
+print(length(hfi_countries))  # 162
+
+suic_countries <- unique(suicides$country)
+print(length(suic_countries))  # 101
+
+init_joined <- inner_join(hfi, suicides, by = c("year", "country"))
+init_join_countries <- unique(init_joined$country)
+print(length(init_join_countries))  # 78
+
+# 23 countries weren't joined together initially, why?
+nonjoin_countries <- setdiff(suic_countries, init_join_countries)
+print(nonjoin_countries)
+
+# print(setdiff(hfi_countries, init_join_countries))
+```
+
+
+### Investigate country names that don't match
+Use duckduckgo and wikipedia to sort out name mismatches (if possible)
+
+```{r explore_non_matches}
+# Antigua and Barbuda - only in suicides (ok)
+# Aruba - only in suicides (ok)
+# Azerbaijan - country in both, but years don't align (ok)
+# Cabo Verde - in hfi named Cape Verde, change to Cape Verde in suicides data (!fix suicides)
+# Cuba - only in suicides data (ok)
+# Czech Republic - hfi abbreviated to Czech Rep. (!fix hfi)
+# Dominica - only in suicides, different from Dominican Republic (in hfi) (ok)
+# Grenada - only in suicides (ok)
+# Kiribati - only in suicides (ok)
+# Kyrgyzstan - hfi lists official name "Kyrgyz Republic" (!fix hfi)
+# Macau - only in suicides (ok)
+# Maldives - only in suicides (ok)
+# Puerto Rico - only in suicides (ok)
+# Republic of Korea - hfi lists as "Korea, South" (!fix hfi)
+# Russian Federation - hfi lists as "Russia" (!fix suicides)
+# Saint Kitts and Nevis - only in suicides (ok)
+# Saint Lucia - only in suicides (ok)
+# Saint Vincent and Grenadines - only in suicides (ok)
+# San Marino - only in suicides (ok)
+# Slovakia - hfi lists as "Slovak Rep." (!fix hfi)
+# Sri Lanka - country in both, but years don't align (ok)
+# Turkmenistan - only in suicides (ok)
+# Uzbekistan - only in suicides (ok)
+
+## Check existence of country and years available in each dataset:
+# HFI
+print(unique(filter(hfi, str_detect(country, "India"))$country))
+print(unique(filter(hfi, str_detect(country, "India"))$year))
+# Suicides
+print(unique(filter(suicides, str_detect(country, "India"))$country))
+print(unique(filter(suicides, str_detect(country, "India"))$year))
+```
+
+
+### Clean up country names that didn't match initially
+```{r clean_country_names}
+hfi_clean_cntry <- hfi %>%
+    mutate(country = str_replace(country, "Czech Rep.", "Czech Republic"),
+           country = str_replace(country, "Kyrgyz Republic", "Kyrgyzstan"),
+           country = str_replace(country, "Korea, South", "Republic of Korea"),
+           country = str_replace(country, "Slovak Rep.", "Slovakia"),)
+
+
+suic_clean_cntry <- suicides %>%
+    mutate(country = str_replace(country, "Cabo Verde", "Cape Verde"),
+           country = str_replace(country, "Russian Federation", "Russia"))
+
+joined <- inner_join(hfi_clean_cntry, suic_clean_cntry, by = c("year", "country"))
+
+print(length(unique(joined$country))) # 78 init, 84 final
+```
+
+``` {r year_explore_counts}
+# 2016 doesn't seem to have many records, maybe it should be excluded from this analysis?
+# Yes, it has far fewer (< 20%) records than other years have
+joined %>%
+    group_by(year) %>%
+    count()
+
+joined_no2016 <- filter(joined, year != 2016)
+write_csv(joined_no2016, "../output/clean_hfi_suicides_joined_no2016.csv")
+```
+
+
+## Explore correlations between freedom, suicides, and GDP
+Overall, personal, and economic freedom scores, number of suicides per 100k, and GDP per capita
+
+```{r explore_correlations, fig.height = 7, fig.width = 10, cache = TRUE}
+# Suicides are currently broken down by age and sex, we need to aggregate to total counts
+corr_data <- joined_no2016 %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(hf_score, pf_score, ef_score, total_suicides_p100k, gdp_per_capita)
+
+summary(corr_data)
+
+# Correlation pairs plot with histograms, density, and scatter plots
+pairs.panels(corr_data,
+             smooth = TRUE,
+             scale = FALSE,
+             density = TRUE,
+             ellipses = FALSE,
+             method = "pearson",
+             pch = 21,
+             lm = FALSE,
+             cor = TRUE,
+             jiggle = FALSE,
+             hist.col = 4,
+             stars = TRUE,
+             ci = TRUE)
+```
+
+#### Overall human freedom score seems to be most highly correlated with GDP per capita, though this is not too surprising.  Suicide rates do seem to have a weak correlation to personal and human freedom, but not economic freedom or gdp per capita.  This makes me wonder if they would be more corelated to a country's happiness rather than it's freedom.
+
+
+
+## Does a country's population size impact freedom?
+#### No, there doesn't seem to exist any relationship between population size and human freedom
+```{r pop_size_freedom, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+ggplot(joined_no2016, aes(x = population, y = hf_score)) +
+    geom_point() +
+    geom_smooth() +
+    facet_wrap( ~ year, nrow = 2)
+```
+
+
+## Do female freedom scores relate to female suicide rates?
+```{r fem_freedom_suicide, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+fem_freedom_suic <- joined_no2016 %>%
+    filter(sex == 'female') %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(year, country, pf_ss_women_fgm, pf_ss_women_inheritance, pf_movement_women,
+           pf_identity_sex_female, pf_identity_divorce, total_suicides_p100k)
+
+fem_freedom_suic$avg_fem_freedom <- rowMeans(select(fem_freedom_suic,
+                                                    pf_ss_women_fgm, pf_ss_women_inheritance,
+                                                    pf_movement_women, pf_identity_sex_female,
+                                                    pf_identity_divorce), na.rm = TRUE)
+
+ggplot(fem_freedom_suic, aes(x = avg_fem_freedom, y = total_suicides_p100k)) +
+    geom_jitter(alpha = 0.1) +
+    geom_smooth(se = FALSE)
+```
+
+#### The relationship between female freedom in a country and female suicide rates is non-existent to weak in strength. Many countries have top freedom scores and have a wide range of suicide rates per one hundred thousand persons.
+
+
+## What are important factors that contribute to human freedom?
+```{r freedom_factors}
+
+
+
+```

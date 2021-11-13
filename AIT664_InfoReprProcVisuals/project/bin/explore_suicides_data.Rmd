@@ -30,7 +30,7 @@ library(plotly)
 
 ## Load dataset into R
 
-```{r data, results = 'hide', message = FALSE}
+```{r data, results = 'hide', message = FALSE, warning = FALSE}
 suicides <- read_csv("../data/suicide_rates.csv")
 ```
 
@@ -42,7 +42,7 @@ suicides <- read_csv("../data/suicide_rates.csv")
 print(summary(suicides))
 ```
 
-### Update format with factor and numeric variables
+### Update format with factor and numeric variables, year >= 2008 to match HFI data
 * 3 categorical variables
     + `country`
     + `sex`
@@ -65,13 +65,16 @@ suic_fmt <- suicides %>%
            age = factor(str_replace(age, " years", ""), levels = age_levels),
            suicides_p100k = `suicides/100k pop`,
            gdp_per_capita = `gdp_per_capita ($)`) %>%
-    select(country, year, sex, age, suicides_no, population, suicides_p100k, gdp_per_capita)
+    select(country, year, sex, age, suicides_no, population, suicides_p100k, gdp_per_capita) %>%
+    filter(year >= 2008)
+
+write_csv(suic_fmt, "../data/clean_suicides.csv")
 
 print(summary(suic_fmt))
 ```
 #### Data Summary
 - No NAs, thus no missing values
-- Each of the 4 numeric variables have a heavy right skew (mean > median):
+- Each of the 4 numeric variables have a heavy right skew (mean >> median):
     + We can see this more clearly visually with histograms (see next page)
     + Log transformations are required to see variable distributions
 
@@ -86,9 +89,9 @@ print(tail(suic_fmt))
 
 
 ### Further investigate high suicide counts
-Sorting by suicide counts descending tells us that Russian men age 35-54 had the highest
-suicide raw counts around the 1990s to early 2000s, but this is not scaled by population yet.
-If we instead look at suicides per 100k persons, will the same trend appear?
+Sorting by suicide counts descending tells us that US and Russian men age 35-54 had the highest
+suicide raw counts from 2008 - 2015, but this is not scaled by population yet.
+If we instead look at suicides per 100k persons, will the same trend hold?
 ```{r}
 high_suicides <- suic_fmt %>%
     filter(suicides_no > 1000) %>%
@@ -97,7 +100,7 @@ high_suicides <- suic_fmt %>%
 ```
 
 #### Suicides per 100k persons
-Russian men are no longer at the top of list, so it may have been due to their large population
+US and Russian men are no longer at the top of list, so it may have been due to their large population
 that so many suicides occurred.  In both of these lists I see only male persons that are older
 as well, so maybe sex or age plays a factor here.
 ```{r}
@@ -110,6 +113,19 @@ quantile(suic_fmt$suicides_p100k, probs = seq(0, 1, 1/10))
 
 # A boxplot can show us visually that the rates are pretty low except for some high outliers
 boxplot(suic_fmt$suicides_p100k)
+
+# What about all those 0 values? Do some countries have only 0 values for every record?
+suic_cts_country <- suic_fmt %>%
+    mutate(zero_suicides = if_else(suicides_no == 0, 1, 0)) %>%
+    group_by(country, zero_suicides) %>%
+    count() %>%
+    pivot_wider(names_from = "zero_suicides", values_from = "n", names_prefix = "zero_suic_") %>%
+    rename(rec_ct_suic_gt0 = zero_suic_0,
+           rec_ct_suic_eq0 = zero_suic_1) %>%
+    mutate(perc_zero_suic_recs = rec_ct_suic_eq0 / (rec_ct_suic_eq0 + rec_ct_suic_gt0))
+
+print(suic_cts_country)
+write_csv(suic_cts_country, "../output/suicide_counts_country.csv")
 ```
 
 #### Suicides per 100k persons vs Age by Sex
