@@ -194,7 +194,7 @@ ggp_time <- ggplotly(ggplot(suic_totals) +
               alpha = 0.3, show.legend = FALSE))
 ```
 
-```{r add_ggplotly, echo = FALSE}
+```{r include, echo = FALSE}
 htmlwidgets::saveWidget(ggp_time, "index.html")
 
 htmltools::tags$iframe(
