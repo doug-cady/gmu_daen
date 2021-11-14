@@ -4,8 +4,10 @@ subtitle: "Part 2: Data Exploration with Suicides Dataset"
 author: "Doug Cady"
 date: "November 6, 2021"
 output:
-    pdf_document:
+    html_document:
         toc: true
+        theme: simplex
+        highlight: tango
 ---
 
 ```{r hidden, echo = FALSE}
@@ -191,7 +193,7 @@ suic_totals <- suic_fmt %>%
 gg_time <- ggplot(suic_totals) +
     geom_line(aes(x = year, y = total_suicides_p100k, color = country, group = country),
               alpha = 0.3, show.legend = FALSE)
-gg_time
+# gg_time
 
-# ggplotly(gg_time)
+ggplotly(gg_time)
 ```

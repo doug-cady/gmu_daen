@@ -179,5 +179,5 @@ women_freedom_init$avg_women_score <- rowMeans(select(women_freedom_init, women_
 women_freedom <- women_freedom_init[!is.na(women_freedom_init$avg_women_score),
                                     c("year", "country", "region", "avg_women_score")]
 
-ggplot(women_freedom) + geom_histogram(aes(x = avg_women_score))
+ggplot(women_freedom) + geom_histogram(aes(x = avg_women_score, y = ..density..))
 ```

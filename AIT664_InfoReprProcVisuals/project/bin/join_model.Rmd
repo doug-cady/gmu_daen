@@ -8,11 +8,18 @@ output:
         toc: true
         theme: simplex
         highlight: tango
-    pdf_document:
-        toc: true
-    github_document:
-        toc: true
 ---
+
+```{r hidden, echo = FALSE}
+# html_document:
+#         toc: true
+#         theme: simplex
+#         highlight: tango
+#     pdf_document:
+#         toc: true
+#     github_document:
+#         toc: true
+```
 
 R version 4.1.1 "Kick Things"
 
@@ -22,9 +29,6 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(psych)
-# library(stringr)
-# library(GGally)
-# library(plotly)
 ```
 
 
@@ -121,6 +125,7 @@ joined %>%
     count()
 
 joined_no2016 <- filter(joined, year != 2016)
+print(paste(nrow(joined_no2016), ncol(joined_no2016)))
 write_csv(joined_no2016, "../output/clean_hfi_suicides_joined_no2016.csv")
 ```
 
@@ -152,22 +157,11 @@ pairs.panels(corr_data,
              cor = TRUE,
              jiggle = FALSE,
              hist.col = 4,
-             stars = TRUE,
+             stars = FALSE,
              ci = TRUE)
 ```
 
-#### Overall human freedom score seems to be most highly correlated with GDP per capita, though this is not too surprising.  Suicide rates do seem to have a weak correlation to personal and human freedom, but not economic freedom or gdp per capita.  This makes me wonder if they would be more corelated to a country's happiness rather than it's freedom.
-
-
-
-## Does a country's population size impact freedom?
-#### No, there doesn't seem to exist any relationship between population size and human freedom
-```{r pop_size_freedom, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
-ggplot(joined_no2016, aes(x = population, y = hf_score)) +
-    geom_point() +
-    geom_smooth() +
-    facet_wrap( ~ year, nrow = 2)
-```
+#### Overall human freedom score seems to be most highly correlated with GDP per capita, though this is not too surprising.  Suicide rates do seem to have a weak correlation to personal and human freedom, but not economic freedom or gdp per capita.  This makes me wonder if they would be more correlated to a country's happiness rather than it's freedom.
 
 
 ## Do female freedom scores relate to female suicide rates?
@@ -190,14 +184,76 @@ fem_freedom_suic$avg_fem_freedom <- rowMeans(select(fem_freedom_suic,
 ggplot(fem_freedom_suic, aes(x = avg_fem_freedom, y = total_suicides_p100k)) +
     geom_jitter(alpha = 0.1) +
     geom_smooth(se = FALSE)
+
+# Hypothesis: Countries with high female freedom scores will have less than average female suicide rates
+sorted_fem_free_scores <- fem_freedom_suic %>%
+    filter(year == 2015) %>%
+    unique() %>%
+    select(avg_fem_freedom, total_suicides_p100k) %>%
+    arrange(desc(avg_fem_freedom))
+
+print(nrow(sorted_fem_free_scores)) # 56
+
+hi_fem_free <- sorted_fem_free_scores[1:28, ]
+lo_fem_free <- sorted_fem_free_scores[29:56, ]
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.01, significant at 98% confidence level
+# Reject null hypothesis and conclude that there may exist a relationship between higher
+# BUT if we look back at the scatter plot of suicide rates vs freedom scores, more than half
+# (almost 65%) of the countries have a freedom score of 10. So which countries should be classified
+# as lo vs hi freedom if there are 10 scores in both groups??
+t.test(hi_fem_free$total_suicides_p100k, lo_fem_free$total_suicides_p100k)
 ```
 
 #### The relationship between female freedom in a country and female suicide rates is non-existent to weak in strength. Many countries have top freedom scores and have a wide range of suicide rates per one hundred thousand persons.
 
 
+
+## Does a country's population size impact freedom?
+#### There exists only a weak correlation between population size and human freedom for a country
+```{r pop_size_freedom, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+joined_2015 <- filter(joined, year == 2015) %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(year, country, total_pop, hf_score) %>%
+    unique() %>%
+    arrange(total_pop)
+
+ggplot(joined_2015, aes(x = total_pop, y = hf_score)) +
+    geom_point() +
+    geom_smooth() +
+    facet_wrap( ~ year, nrow = 2)
+
+# Hypothesis: Countries with smaller populations will have more freedom
+total_rows <- nrow(joined_2015)  # 56
+row_split <- total_rows / 2  # 28
+small_pop <- joined_2015[1:28, ]
+large_pop <- joined_2015[29:56, ]
+
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.06, significant at 90% confidence level, but I am using 95% confidence
+# Fail to reject null hypothesis at 95% confidence level, though it's close
+t.test(small_pop$hf_score, large_pop$hf_score)
+```
+
+
 ## What are important factors that contribute to human freedom?
+#### Factors that can positively impact human freedom include the free movement of women, women's inheritance rights, and divorce rights. A country's population seems to have a negative relationship with human freedom, as we saw a bit earlier.
 ```{r freedom_factors}
+no_countries <- joined_no2016 %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(pf_ss_women_inheritance, pf_movement_women, pf_identity_sex_female,
+           pf_identity_divorce, hf_score, total_pop, gdp_per_capita) %>%
+    unique()
 
-
+lm1 <- lm(hf_score ~ ., data = no_countries)
+summary(lm1)
 
 ```

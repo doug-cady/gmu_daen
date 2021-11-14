@@ -11,9 +11,6 @@ library(dplyr)
 library(tidyr)
 library(ggplot2)
 library(psych)
-# library(stringr)
-# library(GGally)
-# library(plotly)
 ```
 
 ## Load datasets into R
@@ -225,26 +222,13 @@ pairs.panels(corr_data,
              cor = TRUE,
              jiggle = FALSE,
              hist.col = 4,
-             stars = TRUE,
+             stars = FALSE,
              ci = TRUE)
 ```
 
 ![](join_model_files/figure-gfm/explore_correlations-1.png)<!-- -->
 
-#### Overall human freedom score seems to be most highly correlated with GDP per capita, though this is not too surprising. Suicide rates do seem to have a weak correlation to personal and human freedom, but not economic freedom or gdp per capita. This makes me wonder if they would be more corelated to a country’s happiness rather than it’s freedom.
-
-## Does a country’s population size impact freedom?
-
-#### No, there doesn’t seem to exist any relationship between population size and human freedom
-
-``` r
-ggplot(joined_no2016, aes(x = population, y = hf_score)) +
-    geom_point() +
-    geom_smooth() +
-    facet_wrap( ~ year, nrow = 2)
-```
-
-![](join_model_files/figure-gfm/pop_size_freedom-1.png)<!-- -->
+#### Overall human freedom score seems to be most highly correlated with GDP per capita, though this is not too surprising. Suicide rates do seem to have a weak correlation to personal and human freedom, but not economic freedom or gdp per capita. This makes me wonder if they would be more correlated to a country’s happiness rather than it’s freedom.
 
 ## Do female freedom scores relate to female suicide rates?
 
@@ -271,13 +255,108 @@ ggplot(fem_freedom_suic, aes(x = avg_fem_freedom, y = total_suicides_p100k)) +
 
 ![](join_model_files/figure-gfm/fem_freedom_suicide-1.png)<!-- -->
 
+``` r
+# Hypothesis: Countries with high female freedom scores will have less than average female suicide rates
+sorted_fem_free_scores <- fem_freedom_suic %>%
+    filter(year == 2015) %>%
+    unique() %>%
+    select(avg_fem_freedom, total_suicides_p100k) %>%
+    arrange(desc(avg_fem_freedom))
+
+print(nrow(sorted_fem_free_scores)) # 56
+```
+
+    ## [1] 56
+
+``` r
+hi_fem_free <- sorted_fem_free_scores[1:28, ]
+lo_fem_free <- sorted_fem_free_scores[29:56, ]
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.01, significant at 98% confidence level
+# Reject null hypothesis and conclude that there may exist a relationship between higher
+# BUT if we look back at the scatter plot of suicide rates vs freedom scores, more than half
+# (almost 65%) of the countries have a freedom score of 10. So which countries should be classified
+# as lo vs hi freedom if there are 10 scores in both groups??
+t.test(hi_fem_free$total_suicides_p100k, lo_fem_free$total_suicides_p100k)
+```
+
+    ## 
+    ##  Welch Two Sample t-test
+    ## 
+    ## data:  hi_fem_free$total_suicides_p100k and lo_fem_free$total_suicides_p100k
+    ## t = 2.7, df = 49, p-value = 0.01
+    ## alternative hypothesis: true difference in means is not equal to 0
+    ## 95 percent confidence interval:
+    ##  0.5406 3.7646
+    ## sample estimates:
+    ## mean of x mean of y 
+    ##     6.326     4.173
+
 #### The relationship between female freedom in a country and female suicide rates is non-existent to weak in strength. Many countries have top freedom scores and have a wide range of suicide rates per one hundred thousand persons.
+
+## Does a country’s population size impact freedom?
+
+#### There exists only a weak correlation between population size and human freedom for a country
+
+``` r
+joined_2015 <- filter(joined, year == 2015) %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(year, country, total_pop, hf_score) %>%
+    unique() %>%
+    arrange(total_pop)
+
+ggplot(joined_2015, aes(x = total_pop, y = hf_score)) +
+    geom_point() +
+    geom_smooth() +
+    facet_wrap( ~ year, nrow = 2)
+```
+
+![](join_model_files/figure-gfm/pop_size_freedom-1.png)<!-- -->
+
+``` r
+# Hypothesis: Countries with smaller populations will have more freedom
+total_rows <- nrow(joined_2015)  # 56
+row_split <- total_rows / 2  # 28
+small_pop <- joined_2015[1:28, ]
+large_pop <- joined_2015[29:56, ]
+
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.06, significant at 90% confidence level, but I am using 95% confidence
+# Fail to reject null hypothesis at 95% confidence level, though it's close
+t.test(small_pop$hf_score, large_pop$hf_score)
+```
+
+    ## 
+    ##  Welch Two Sample t-test
+    ## 
+    ## data:  small_pop$hf_score and large_pop$hf_score
+    ## t = 1.9, df = 50, p-value = 0.06
+    ## alternative hypothesis: true difference in means is not equal to 0
+    ## 95 percent confidence interval:
+    ##  -0.01253  0.80089
+    ## sample estimates:
+    ## mean of x mean of y 
+    ##     7.912     7.518
 
 ## What are important factors that contribute to human freedom?
 
+#### Factors that can positively impact human freedom include the free movement of women, women’s inheritance rights, and divorce rights. A country’s population seems to have a negative relationship with human freedom, as we saw a bit earlier.
+
 ``` r
-no_countries <- select(joined_no2016, -country, -age, -sex, -region, -pf_ss_women_fgm,
-                       -ef_score, -pf_score)
+no_countries <- joined_no2016 %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(pf_ss_women_inheritance, pf_movement_women, pf_identity_sex_female,
+           pf_identity_divorce, hf_score, total_pop, gdp_per_capita) %>%
+    unique()
+
 lm1 <- lm(hf_score ~ ., data = no_countries)
 summary(lm1)
 ```
@@ -288,24 +367,21 @@ summary(lm1)
     ## 
     ## Residuals:
     ##     Min      1Q  Median      3Q     Max 
-    ## -1.8561 -0.1965  0.0884  0.3277  1.3265 
+    ## -1.6352 -0.2135  0.0786  0.3422  0.9207 
     ## 
     ## Coefficients:
     ##                          Estimate Std. Error t value Pr(>|t|)    
-    ## (Intercept)              2.25e-01   2.49e+01    0.01   0.9928    
-    ## year                     2.68e-03   1.24e-02    0.22   0.8284    
-    ## pf_ss_women_inheritance  3.76e-02   5.30e-03    7.10  1.6e-12 ***
-    ## pf_movement_women        1.46e-01   6.22e-03   23.41  < 2e-16 ***
-    ## pf_identity_sex_female  -3.58e-02   6.74e-03   -5.32  1.2e-07 ***
-    ## pf_identity_divorce      4.31e-02   5.43e-03    7.94  3.2e-15 ***
-    ## suicides_no              5.44e-05   1.75e-05    3.10   0.0019 ** 
-    ## population              -3.87e-08   3.16e-09  -12.25  < 2e-16 ***
-    ## suicides_p100k           1.80e-03   7.15e-04    2.52   0.0119 *  
-    ## gdp_per_capita           1.46e-05   3.74e-07   39.07  < 2e-16 ***
+    ## (Intercept)              5.62e+00   2.08e-01   26.99  < 2e-16 ***
+    ## pf_ss_women_inheritance  3.96e-02   1.84e-02    2.15    0.033 *  
+    ## pf_movement_women        1.48e-01   2.17e-02    6.79  1.6e-10 ***
+    ## pf_identity_sex_female  -3.58e-02   2.35e-02   -1.52    0.129    
+    ## pf_identity_divorce      4.49e-02   1.89e-02    2.37    0.019 *  
+    ## total_pop               -3.36e-09   6.89e-10   -4.88  2.4e-06 ***
+    ## gdp_per_capita           1.47e-05   1.30e-06   11.27  < 2e-16 ***
     ## ---
     ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
     ## 
-    ## Residual standard error: 0.461 on 2174 degrees of freedom
-    ##   (4812 observations deleted due to missingness)
-    ## Multiple R-squared:  0.618,  Adjusted R-squared:  0.616 
-    ## F-statistic:  391 on 9 and 2174 DF,  p-value: <2e-16
+    ## Residual standard error: 0.465 on 175 degrees of freedom
+    ##   (401 observations deleted due to missingness)
+    ## Multiple R-squared:  0.624,  Adjusted R-squared:  0.611 
+    ## F-statistic: 48.5 on 6 and 175 DF,  p-value: <2e-16

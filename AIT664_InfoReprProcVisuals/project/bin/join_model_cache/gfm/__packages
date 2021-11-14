@@ -1,0 +1,10 @@
+base
+readr
+dplyr
+tidyr
+stringr
+ggplot2
+GGally
+gridExtra
+plotly
+psych
