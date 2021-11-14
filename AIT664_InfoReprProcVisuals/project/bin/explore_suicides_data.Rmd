@@ -6,6 +6,7 @@ date: "November 6, 2021"
 output:
     html_document:
         toc: true
+        keep_md: true
         theme: simplex
         highlight: tango
     pdf_document:
@@ -103,7 +104,7 @@ high_suicides <- suic_fmt %>%
 US and Russian men are no longer at the top of list, so it may have been due to their large population
 that so many suicides occurred.  In both of these lists I see only male persons that are older
 as well, so maybe sex or age plays a factor here.
-```{r}
+```{r suicide_boxplot}
 suic_fmt %>%
     arrange(desc(suicides_p100k)) %>%
     print()
@@ -122,7 +123,8 @@ suic_cts_country <- suic_fmt %>%
     pivot_wider(names_from = "zero_suicides", values_from = "n", names_prefix = "zero_suic_") %>%
     rename(rec_ct_suic_gt0 = zero_suic_0,
            rec_ct_suic_eq0 = zero_suic_1) %>%
-    mutate(perc_zero_suic_recs = rec_ct_suic_eq0 / (rec_ct_suic_eq0 + rec_ct_suic_gt0))
+    mutate(perc_zero_suic_recs = rec_ct_suic_eq0 / (rec_ct_suic_eq0 + rec_ct_suic_gt0)) %>%
+    arrange(desc(perc_zero_suic_recs))
 
 print(suic_cts_country)
 write_csv(suic_cts_country, "../output/suicide_counts_country.csv")
@@ -132,7 +134,7 @@ write_csv(suic_cts_country, "../output/suicide_counts_country.csv")
 Does sex or age contribute to historic suicide rates?
 Yes, it does seem like suicides are more common among men than women and elderly vs young folks,
 though this plot contains 30 years of data for over 100 countries.
-```{r}
+```{r suicides_age_sex}
 ggplot(suic_fmt) +
     geom_jitter(aes(x = sex, y = suicides_p100k, color = sex),
                 alpha = 0.2) +
@@ -151,7 +153,7 @@ function can give ggplot the correct column name from an input "string" column n
 using Python, I would have created a dictionary and looped over it to get the column and axis
 labels, but R makes this process harder.
 
-```{r, message = FALSE, warning = FALSE}
+```{r var_dist, message = FALSE, warning = FALSE}
 make_hist <- function(xlab, col) {
     ggplot(suic_fmt) +
         geom_histogram(aes(x = log(get(col)), y = ..density..)) +
