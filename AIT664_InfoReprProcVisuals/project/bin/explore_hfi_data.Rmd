@@ -4,15 +4,18 @@ subtitle: "Part 2: Data Exploration with HFI Dataset"
 author: "Doug Cady"
 date: "November 9, 2021"
 output:
-    html_document:
-        toc: true
-        theme: simplex
-        highlight: tango
     pdf_document:
         toc: true
-    github_document:
-        toc: true
 ---
+
+```{r hidden, echo = FALSE}
+# html_document:
+#         toc: true
+#         theme: simplex
+#         highlight: tango
+#     pdf_document:
+#         toc: true
+```
 
 R version 4.1.1 "Kick Things"
 
@@ -23,7 +26,6 @@ library(tidyr)
 library(stringr)
 library(ggplot2)
 library(GGally)
-# library(plotly)
 ```
 
 
@@ -59,9 +61,9 @@ hfi <- read_csv("../data/hfi_cc_2018.csv")
     + Perhaps educational opportunity or abortion access should be included here as well?
 2. Countries with smaller populations will have more freedom
 
-    Ho: mean freedom small population - mean freedom large population <= 0
+    Ho: mean freedom small population <= mean freedom large population
 
-    Ha: mean freedom small population - mean freedom large population > 0
+    Ha: mean freedom small population > mean freedom large population
 
     + `hf_score` - Overall Human Freedom Index score
     + `population` - (suicides dataset) country population

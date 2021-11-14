@@ -4,14 +4,13 @@ subtitle: "Part 2: Data Exploration with Suicides Dataset"
 author: "Doug Cady"
 date: "November 6, 2021"
 output:
-    github_document:
+    pdf_document:
         toc: true
 ---
 
 ```{r hidden, echo = FALSE}
 # html_document:
 #         toc: true
-#         keep_md: true
 #         theme: simplex
 #         highlight: tango
 #     pdf_document:
@@ -189,22 +188,10 @@ suic_totals <- suic_fmt %>%
 # Show table of year, country, suicide rates
 # pivot_longer(suic_totals, year,
 
-ggp_time <- ggplotly(ggplot(suic_totals) +
+gg_time <- ggplot(suic_totals) +
     geom_line(aes(x = year, y = total_suicides_p100k, color = country, group = country),
-              alpha = 0.3, show.legend = FALSE))
+              alpha = 0.3, show.legend = FALSE)
+gg_time
+
+# ggplotly(gg_time)
 ```
-
-# ```{r include, echo = FALSE}
-# htmlwidgets::saveWidget(ggp_time, "index.html")
-
-# htmltools::tags$iframe(
-#     src = "index.html",
-#     width = "100%",
-#     height = "600",
-#     scrolling = "no",
-#     seamless = "seamless",
-#     frameBorder = "0"
-# )
-# ```
-
-<iframe src="/home/doug/Documents/GMU_Grad/7_AIT_664/project/bin/index.html" width="100%" height="600" scrolling="no" seamless="seamless" frameBorder="0"></iframe>
