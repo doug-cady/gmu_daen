@@ -1,0 +1,231 @@
+---
+title: "Human Freedom Index and Suicides Project"
+subtitle: "Part 3: Information Visualization"
+author: "Doug Cady"
+date: "November 21, 2021"
+output:
+    html_document:
+        toc: true
+        theme: simplex
+        highlight: tango
+---
+
+```{r hidden, echo = FALSE}
+# html_document:
+#         toc: true
+#         theme: simplex
+#         highlight: tango
+#     pdf_document:
+#         toc: true
+#     github_document:
+#         toc: true
+```
+
+R version 4.1.2 "Bird Hippie"
+
+```{r packs, results = 'hide', message = FALSE}
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(ggpubr)
+library(gridExtra)
+library(grid)
+source("ggplot_theme.R")
+```
+
+```{r data, results = 'hide', message = FALSE}
+joined_no2016 <- read_csv("../output/clean_hfi_suicides_joined_no2016.csv",
+                          col_types = "dffddddddddffdddd")
+```
+
+```{r summary}
+# print(summary(joined_no2016))
+```
+
+
+## Do female freedom scores relate to female suicide rates?
+```{r fem_freedom_suicide, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+# Aggregate data to remove age, sex breakdowns
+fem_freedom_suic <- joined_no2016 %>%
+    filter(sex == 'female') %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(year, country, pf_ss_women_fgm, pf_ss_women_inheritance, pf_movement_women,
+           pf_identity_sex_female, pf_identity_divorce, total_suicides_p100k)
+
+# Calculate average of 5 female freedom columns across each row
+fem_freedom_suic$avg_fem_freedom <- rowMeans(select(fem_freedom_suic,
+                                                    pf_ss_women_fgm, pf_ss_women_inheritance,
+                                                    pf_movement_women, pf_identity_sex_female,
+                                                    pf_identity_divorce), na.rm = TRUE)
+
+# Multiple Boxplots by Freedom bin group
+formula <- y ~ x
+
+# More than half of countries have an average female freedom score of 10!
+# Their suicide rates cover the whole range from low to high rates, incidating a lack of relationship
+ggplot(fem_freedom_suic, aes(x = avg_fem_freedom, y = total_suicides_p100k)) +
+    geom_boxplot(aes(group = cut_width(avg_fem_freedom, 1))) +
+    stat_regline_equation(aes(label = paste(..adj.rr.label..)), formula = formula, size = 5) +
+    labs(x = 'Average female freedom', y = '', subtitle = "Total Suicides per 100,000 persons vs Average Female Freedom",
+         title = "Female suicide rates doesn't seem to be related to female freedom",
+         caption = "R 4.1.2, ggplot2 3.3.5 (plot), ggpubr 0.4.0 (R^2 value)") +
+    theme(text = element_text(size = 12),
+          plot.title = element_text(size = 16),
+          plot.subtitle = element_text(size = 14, face = 'italic'),
+          plot.caption = element_text(size = 11),
+          axis.ticks = element_blank())
+
+ggsave("../graphics/box_fem_suic_free.png", width = 9, height = 6, units = "in")
+
+# Also, I tried geom_jitter, stat_binhex, and stat_bin2d, but the boxplots seemed the best
+# at communicating the lack of relationship
+
+
+# Hypothesis: Countries with high female freedom scores will have less than average female suicide rates
+sorted_fem_free_scores <- fem_freedom_suic %>%
+    filter(year == 2015) %>%
+    unique() %>%
+    select(avg_fem_freedom, total_suicides_p100k) %>%
+    arrange(desc(avg_fem_freedom))
+
+print(nrow(sorted_fem_free_scores)) # 56 countries
+
+hi_fem_free <- sorted_fem_free_scores[1:28, ]
+lo_fem_free <- sorted_fem_free_scores[29:56, ]
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.01, significant at 98% confidence level
+# Reject null hypothesis and conclude that there may exist a relationship between higher suicide rates and freedom
+# BUT if we look back at the scatter plot of suicide rates vs freedom scores, more than half
+# (almost 65%) of the countries have a freedom score of 10. So which countries should be classified
+# as lo vs hi freedom if there are `10` scores in both groups??
+t.test(hi_fem_free$total_suicides_p100k, lo_fem_free$total_suicides_p100k)
+```
+
+#### The relationship between female freedom in a country and female suicide rates is non-existent to weak in strength. Many countries have top freedom scores and have a wide range of suicide rates per one hundred thousand persons.
+
+<br>
+
+## Does a country's population size impact freedom?
+#### There exists only a weak correlation between population size and human freedom for a country
+```{r pop_size_freedom, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+joined_2015 <- filter(joined_no2016, year == 2015) %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(year, country, total_pop, hf_score, total_suicides_p100k) %>%
+    unique() %>%
+    arrange(total_pop)
+
+ggplot(joined_2015, aes(x = total_pop, y = hf_score)) +
+    geom_point(alpha = 0.4) +
+    geom_smooth(method = 'lm') +
+    stat_regline_equation(aes(label = paste(..adj.rr.label..)), formula = formula,
+                          size = 5, label.x.npc = "center", label.y.npc = "top") +
+    scale_x_continuous(label = function(x) {paste(x / 1000000)}) +
+    labs(x = 'Population (millions of people)', y = '', subtitle = "Overall Human Freedom Score vs Population",
+         title = "A country's population doesn't seem to impact its overall freedom",
+         caption = "R 4.1.2, ggplot2 3.3.5 (plot), ggpubr 0.4.0 (R^2 value)") +
+    theme(text = element_text(size = 12),
+          plot.title = element_text(size = 16),
+          plot.subtitle = element_text(size = 14, face = 'italic'),
+          plot.caption = element_text(size = 11),
+          axis.ticks = element_blank())
+
+ggsave("../graphics/scat_pop_freedom.png", width = 9, height = 6, units = "in")
+
+# Hypothesis: Countries with smaller populations will have more freedom
+total_rows <- nrow(joined_2015)  # 56
+row_split <- total_rows / 2  # 28
+small_pop <- joined_2015[1:28, ]
+large_pop <- joined_2015[29:56, ]
+
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.06, significant at 90% confidence level, but I am using 95% confidence
+# Fail to reject null hypothesis at 95% confidence level, though it's close
+t.test(small_pop$hf_score, large_pop$hf_score)
+```
+
+
+## Juxtaposed row-labeled plots - freedom score vs population size
+#### Focus on 25 smallest countries by population and compare their freedom scores
+```{r juxta_row_plots, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+juxta_data <- joined_2015[1:25, ] %>%
+    select(country, total_pop, hf_score, total_suicides_p100k)
+# Add proximity groups to separate into groups of 5 for ease of distinguishing countries
+juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
+juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
+# Reorder country by total_pop
+# country_order <- juxta_data$country[order(desc(juxta_data$total_pop))]
+# juxta_data$country <- factor(juxta_data$country, levels = country_order)
+# juxta_data$country <- reorder(juxta_data$country, -juxta_data$total_pop)
+
+# Left side of juxtaposed plot (country vs population)
+gg_pop <- juxta_data %>%
+    ggplot(aes(x = total_pop, y = reorder(country, -total_pop),
+               group = prox_grp, color = color_grp)) +
+    # geom_path(color = "gray50") +
+    geom_point(size = 3.5) +
+    geom_point(color = "white", size = 1) +
+    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
+    scale_x_continuous(label = function(x) {paste(x / 1000000)},
+                       expand = expansion(mult = c(0.04, 0.04))) +
+    labs(x = 'Population (millions)', y = '', caption = '') +
+    ggplot_clean_theme
+
+# gg_pop
+
+# Right side of juxtaposed plot (country vs freedom score)
+gg_freedom <- juxta_data %>%
+    ggplot(aes(x = hf_score, y = reorder(country, -total_pop),
+               group = prox_grp, color = color_grp)) +
+    geom_path(color = "gray50") +
+    geom_point(size = 3.5) +
+    geom_point(color = "white", size = 1) +
+    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
+    scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
+    labs(x = 'Overall Human Freedom', y = '',
+         caption = "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid") +
+    ggplot_clean_theme +
+    # theme(text = element_text(size = 12),
+    #       plot.title = element_text(size = 16),
+    #       plot.subtitle = element_text(size = 14, face = 'italic'),
+    #       plot.caption = element_text(size = 11),
+    #       axis.ticks = element_blank(),
+    #       strip.text = element_blank(),
+    #       legend.position = "none",
+    theme(axis.text.y = element_blank())
+
+# gg_freedom
+
+# grid.arrange(gg_pop, gg_freedom, ncol = 2,
+#              top = textGrob("A Comparison of the 25 Smallest Countries' Freedom Scores"))
+
+# Right side of juxtaposed plot (country vs suicide rates)
+gg_suicides <- juxta_data %>%
+    ggplot(aes(x = total_suicides_p100k, y = reorder(country, -total_pop),
+               group = prox_grp, color = color_grp)) +
+    geom_path(color = "gray50") +
+    geom_point(size = 3.5) +
+    geom_point(color = "white", size = 1) +
+    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
+    scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
+    labs(x = 'Suicides per 100,000 persons', y = '',
+         ) +
+    ggplot_clean_theme +
+    theme(axis.text.y = element_blank())
+
+grid.arrange(gg_pop, gg_freedom, ncol = 2,
+             top = textGrob("A Comparison of the 25 Smallest Countries' Freedom Scores"))
+
+
+
+# TODO: add 2 col grid plot - freedom, suicides
+
+```
