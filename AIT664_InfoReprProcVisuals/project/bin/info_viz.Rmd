@@ -119,7 +119,7 @@ joined_2015 <- filter(joined_no2016, year == 2015) %>%
            total_pop = sum(population),
            total_suicides_p100k = total_suicides / total_pop * 100000) %>%
     ungroup() %>%
-    select(year, country, total_pop, hf_score, total_suicides_p100k) %>%
+    select(year, country, total_pop, hf_score, total_suicides_p100k, gdp_per_capita) %>%
     unique() %>%
     arrange(total_pop)
 
@@ -153,91 +153,124 @@ t.test(small_pop$hf_score, large_pop$hf_score)
 ```
 
 
-## Juxtaposed row-labeled plots - population size vs freedom score
-#### Focus on 25 smallest countries by population and compare their freedom scores
+## Juxtaposed row-labeled plots - compare many country's freedom scores, suicide rates, population, and GDP per capita
 ```{r juxta_row_plots, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
-juxta_data <- joined_2015[1:25, ] %>%
-    select(country, total_pop, hf_score, total_suicides_p100k)
+# Plotting functions to create and save plots
+make_juxta_plot <- function(plot_side, data, x, y, xlab, caption, scale_x) {
+    gg_init <- ggplot(data, aes_string(x = x, y = y, group = "prox_grp", color = "color_grp")) +
+        geom_path(color = "gray60") +
+        geom_point(size = 3.5) +
+        geom_point(color = "white", size = 1) +
+        facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
+        labs(x = xlab, y = '', caption = caption) +
+        ggplot_clean_theme
 
-# Add proximity groups to separate into groups of 5 for ease of distinguishing countries
-juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
-juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
+    if (scale_x > 0) {
+        gg_inter <-  gg_init + scale_x_continuous(label = function(x) {paste(x / scale_x)},
+                                                  expand = expansion(mult = c(0.04, 0.04)))
+    } else {
+        gg_inter <-  gg_init + scale_x_continuous(expand = expansion(mult = c(0.04, 0.04)))
+    }
 
-# Left side of juxtaposed plot (country vs population)
-gg_pop <- juxta_data %>%
-    ggplot(aes(x = total_pop, y = reorder(country, -total_pop),
-               group = prox_grp, color = color_grp)) +
-    geom_path(color = "gray60") +
-    geom_point(size = 3.5) +
-    geom_point(color = "white", size = 1) +
-    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
-    scale_x_continuous(label = function(x) {paste(x / 1000000)},
-                       expand = expansion(mult = c(0.04, 0.04))) +
-    labs(x = 'Population (millions)', y = '', caption = '') +
-    ggplot_clean_theme
+    if (plot_side == "right") {
+        return (gg_inter + theme(axis.text.y = element_blank()))
+    } else {
+        return (gg_inter)
+    }
+}
 
-# Right side of juxtaposed plot (country vs freedom score)
-gg_freedom <- juxta_data %>%
-    ggplot(aes(x = hf_score, y = reorder(country, -total_pop),
-               group = prox_grp, color = color_grp)) +
-    geom_path(color = "gray60") +
-    geom_point(size = 3.5) +
-    geom_point(color = "white", size = 1) +
-    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
-    scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
-    labs(x = 'Overall Human Freedom', y = '',
-         caption = "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid") +
-    ggplot_clean_theme +
-    theme(axis.text.y = element_blank())
+# Combine and then save juxtaposed plots (2 columns)
+save_juxta_plot <- function(left, right, title, filename) {
+    grid.arrange(left, right, ncol = 2, top = textGrob(title))
+    arranged_plots <- arrangeGrob(left, right, ncol = 2, top = textGrob(title))
+    ggsave(plot = arranged_plots, filename, width = 7, height = 9, units = "in")
+}
 
-grid_title <- "A Comparison of the 25 Smallest Countries' Freedom Scores (2015)"
-grid.arrange(gg_pop, gg_freedom, ncol = 2, top = textGrob(grid_title))
-
-pop_freedom_juxta_plot <- arrangeGrob(gg_pop, gg_freedom, ncol = 2, top = textGrob(grid_title))
-ggsave(plot = pop_freedom_juxta_plot, "../graphics/juxta_row_pop_freedom.png",
-       width = 7, height = 9, units = "in")
+caption_pkgs <- "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid"
 ```
 
 
-## Juxtaposed row-labeled plots - freedom score vs suicide rate
+## Focus on 25 smallest countries by population and compare their freedom scores
+##### There doesn't seem to be much of a relationship here. If there was, we would expect freedom to have a positive/negative trend alongside their populations.
+```{r population_vs_freedom_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+# Population vs Freedom
+juxta_data <- joined_2015[1:25, ] %>%
+    select(country, total_pop, hf_score, total_suicides_p100k) %>%
+    mutate(country = reorder(country, -total_pop))
+
+# Add proximity groups of 5 for ease of distinguishing countries
+juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
+juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
+
+gg_left <- make_juxta_plot(plot_side = "left", data = juxta_data, x = "total_pop", y = "country",
+                           xlab = "Population (millions)", caption = '', scale_x = 1000000)
+
+gg_right <- make_juxta_plot(plot_side = "right", data = juxta_data, x = "hf_score", y = "country",
+                            xlab = "Overall Human Freedom", caption = caption_pkgs, scale_x = 0)
+
+grid_title <- "A Comparison of the 25 Smallest Countries' Freedom Scores (2015)"
+pop_free_fn <- "../graphics/juxta_row_pop_free.png"
+save_juxta_plot(left = gg_left, right = gg_right, title = grid_title, filename = pop_free_fn)
+
+```
+
+
+## Freedom vs Suicide rate
+##### There might be a weak positive relationship here. It shows that higher freedom countries have higher suicide rates. That's curious.
 ```{r freedom_vs_suicides_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
-# TODO: INCLUDE TOP 51
-free_suic_juxta_data <- arrange(juxta_data, -hf_score, total_suicides_p100k)
-free_suic_juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
-free_suic_juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
+free_suic_juxta_data <- joined_2015[17:56, ] %>%
+    select(country, hf_score, total_suicides_p100k) %>%
+    droplevels() %>%
+    arrange(-hf_score, total_suicides_p100k)
+
+countries_ordered <- rev(unique(free_suic_juxta_data$country))
+
+free_suic_juxta_data <- free_suic_juxta_data %>%
+    mutate(country = factor(country, levels = countries_ordered),
+           prox_grp = rep(paste0("G", 1:8), each = 5),
+           color_grp = rep(paste0("CG", 1:5), times = 8))
+
+# Freedom vs Suicide Rates
+gg_left <- make_juxta_plot(plot_side = "left", data = free_suic_juxta_data,
+                           x = "hf_score", y = "country",
+                           xlab = "Overall Human Freedom", caption = '', scale_x = 0)
+
+gg_right <- make_juxta_plot(plot_side = "right", data = free_suic_juxta_data,
+                            x = "total_suicides_p100k", y = "country",
+                            xlab = "Suicides Per 100,000 Persons", caption = caption_pkgs,
+                            scale_x = 100000)
+
+grid_title <- "A Comparison of the 40 Largest Countries' Freedom Scores and Suicide Rates (2015)"
+free_suic_fn <- "../graphics/juxta_row_free_suic.png"
+save_juxta_plot(left = gg_left, right = gg_right, title = grid_title, filename = free_suic_fn)
+```
 
 
-# Left side of freedom vs suicides
-gg_freedom_2 <- free_suic_juxta_data %>%
-    ggplot(aes(x = hf_score, y = reorder(country, hf_score),
-               group = prox_grp, color = color_grp)) +
-    geom_path(color = "gray60") +
-    geom_point(size = 3.5) +
-    geom_point(color = "white", size = 1) +
-    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
-    scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
-    labs(x = 'Overall Human Freedom', y = '', caption = '') +
-    ggplot_clean_theme
+## GDP per Capita vs Freedom
+##### There seems to be a fairly strong positive relationship between a country's GDP per capita and its human freedom score. It may be easier for wealthy countries to be democratic and enjoy greater freedom. Future work: this may be related to how long a state has been independent and whether it was an imperial power or previous colony (what side of the spectrum in extracting resources and wealth).
+```{r gdp_freedom_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+gdp_free_juxta_data <- joined_2015[17:56, ] %>%
+    select(country, hf_score, gdp_per_capita) %>%
+    droplevels() %>%
+    arrange(-gdp_per_capita)
 
-# Right side (suicides)
-gg_suicides <- free_suic_juxta_data %>%
-    ggplot(aes(x = total_suicides_p100k, y = reorder(country, hf_score),
-               group = prox_grp, color = color_grp)) +
-    geom_path(color = "gray60") +
-    geom_point(size = 3.5) +
-    geom_point(color = "white", size = 1) +
-    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
-    scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
-    labs(x = 'Suicides Per 100,000 Persons', y = '',
-         caption = "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid") +
-    ggplot_clean_theme +
-    theme(axis.text.y = element_blank())
+countries_ordered <- rev(unique(gdp_free_juxta_data$country))
 
-grid_title_2 <- "A Comparison of the 25 Smallest Countries' Freedom Scores and Suicide Rates (2015)"
-grid.arrange(gg_freedom_2, gg_suicides, ncol = 2, top = textGrob(grid_title_2))
+gdp_free_juxta_data <- gdp_free_juxta_data %>%
+    mutate(country = factor(country, levels = countries_ordered),
+           prox_grp = rep(paste0("G", 1:8), each = 5),
+           color_grp = rep(paste0("CG", 1:5), times = 8))
 
-freedom_suicide_juxta_plot <- arrangeGrob(gg_freedom_2, gg_suicides,
-                                          ncol = 2, top = textGrob(grid_title_2))
-ggsave(plot = freedom_suicide_juxta_plot, "../graphics/juxta_row_freedom_suicides.png",
-       width = 7, height = 9, units = "in")
+# GDP per Capita vs Freedom
+gg_left <- make_juxta_plot(plot_side = "left", data = gdp_free_juxta_data,
+                           x = "gdp_per_capita", y = "country",
+                           xlab = "GDP per Capita ($)", caption = '', scale_x = 0)
+
+gg_right <- make_juxta_plot(plot_side = "right", data = gdp_free_juxta_data,
+                            x = "hf_score", y = "country",
+                            xlab = "Overall Human Freedom", caption = caption_pkgs, scale_x = 0)
+
+grid_title <- "A Comparison of the 40 Largest Countries' GDP per Capita and Freedom Scores (2015)"
+gdp_free_fn <- "../graphics/juxta_row_gdp_free.png"
+save_juxta_plot(left = gg_left, right = gg_right, title = grid_title, filename = gdp_free_fn)
 ```
