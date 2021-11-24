@@ -153,24 +153,21 @@ t.test(small_pop$hf_score, large_pop$hf_score)
 ```
 
 
-## Juxtaposed row-labeled plots - freedom score vs population size
+## Juxtaposed row-labeled plots - population size vs freedom score
 #### Focus on 25 smallest countries by population and compare their freedom scores
 ```{r juxta_row_plots, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
 juxta_data <- joined_2015[1:25, ] %>%
     select(country, total_pop, hf_score, total_suicides_p100k)
+
 # Add proximity groups to separate into groups of 5 for ease of distinguishing countries
 juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
 juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
-# Reorder country by total_pop
-# country_order <- juxta_data$country[order(desc(juxta_data$total_pop))]
-# juxta_data$country <- factor(juxta_data$country, levels = country_order)
-# juxta_data$country <- reorder(juxta_data$country, -juxta_data$total_pop)
 
 # Left side of juxtaposed plot (country vs population)
 gg_pop <- juxta_data %>%
     ggplot(aes(x = total_pop, y = reorder(country, -total_pop),
                group = prox_grp, color = color_grp)) +
-    # geom_path(color = "gray50") +
+    geom_path(color = "gray60") +
     geom_point(size = 3.5) +
     geom_point(color = "white", size = 1) +
     facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
@@ -179,13 +176,11 @@ gg_pop <- juxta_data %>%
     labs(x = 'Population (millions)', y = '', caption = '') +
     ggplot_clean_theme
 
-# gg_pop
-
 # Right side of juxtaposed plot (country vs freedom score)
 gg_freedom <- juxta_data %>%
     ggplot(aes(x = hf_score, y = reorder(country, -total_pop),
                group = prox_grp, color = color_grp)) +
-    geom_path(color = "gray50") +
+    geom_path(color = "gray60") +
     geom_point(size = 3.5) +
     geom_point(color = "white", size = 1) +
     facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
@@ -193,39 +188,56 @@ gg_freedom <- juxta_data %>%
     labs(x = 'Overall Human Freedom', y = '',
          caption = "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid") +
     ggplot_clean_theme +
-    # theme(text = element_text(size = 12),
-    #       plot.title = element_text(size = 16),
-    #       plot.subtitle = element_text(size = 14, face = 'italic'),
-    #       plot.caption = element_text(size = 11),
-    #       axis.ticks = element_blank(),
-    #       strip.text = element_blank(),
-    #       legend.position = "none",
     theme(axis.text.y = element_blank())
 
-# gg_freedom
+grid_title <- "A Comparison of the 25 Smallest Countries' Freedom Scores (2015)"
+grid.arrange(gg_pop, gg_freedom, ncol = 2, top = textGrob(grid_title))
 
-# grid.arrange(gg_pop, gg_freedom, ncol = 2,
-#              top = textGrob("A Comparison of the 25 Smallest Countries' Freedom Scores"))
+pop_freedom_juxta_plot <- arrangeGrob(gg_pop, gg_freedom, ncol = 2, top = textGrob(grid_title))
+ggsave(plot = pop_freedom_juxta_plot, "../graphics/juxta_row_pop_freedom.png",
+       width = 7, height = 9, units = "in")
+```
 
-# Right side of juxtaposed plot (country vs suicide rates)
-gg_suicides <- juxta_data %>%
-    ggplot(aes(x = total_suicides_p100k, y = reorder(country, -total_pop),
+
+## Juxtaposed row-labeled plots - freedom score vs suicide rate
+```{r freedom_vs_suicides_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+# TODO: INCLUDE TOP 51
+free_suic_juxta_data <- arrange(juxta_data, -hf_score, total_suicides_p100k)
+free_suic_juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
+free_suic_juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
+
+
+# Left side of freedom vs suicides
+gg_freedom_2 <- free_suic_juxta_data %>%
+    ggplot(aes(x = hf_score, y = reorder(country, hf_score),
                group = prox_grp, color = color_grp)) +
-    geom_path(color = "gray50") +
+    geom_path(color = "gray60") +
     geom_point(size = 3.5) +
     geom_point(color = "white", size = 1) +
     facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
     scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
-    labs(x = 'Suicides per 100,000 persons', y = '',
-         ) +
+    labs(x = 'Overall Human Freedom', y = '', caption = '') +
+    ggplot_clean_theme
+
+# Right side (suicides)
+gg_suicides <- free_suic_juxta_data %>%
+    ggplot(aes(x = total_suicides_p100k, y = reorder(country, hf_score),
+               group = prox_grp, color = color_grp)) +
+    geom_path(color = "gray60") +
+    geom_point(size = 3.5) +
+    geom_point(color = "white", size = 1) +
+    facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
+    scale_x_continuous(expand = expansion(mult = c(0.04, 0.04))) +
+    labs(x = 'Suicides Per 100,000 Persons', y = '',
+         caption = "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid") +
     ggplot_clean_theme +
     theme(axis.text.y = element_blank())
 
-grid.arrange(gg_pop, gg_freedom, ncol = 2,
-             top = textGrob("A Comparison of the 25 Smallest Countries' Freedom Scores"))
+grid_title_2 <- "A Comparison of the 25 Smallest Countries' Freedom Scores and Suicide Rates (2015)"
+grid.arrange(gg_freedom_2, gg_suicides, ncol = 2, top = textGrob(grid_title_2))
 
-
-
-# TODO: add 2 col grid plot - freedom, suicides
-
+freedom_suicide_juxta_plot <- arrangeGrob(gg_freedom_2, gg_suicides,
+                                          ncol = 2, top = textGrob(grid_title_2))
+ggsave(plot = freedom_suicide_juxta_plot, "../graphics/juxta_row_freedom_suicides.png",
+       width = 7, height = 9, units = "in")
 ```
