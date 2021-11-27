@@ -24,13 +24,14 @@ output:
 R version 4.1.2 "Bird Hippie"
 
 ```{r packs, results = 'hide', message = FALSE}
-library(readr)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(ggpubr)
-library(gridExtra)
-library(grid)
+library(readr)  # 1.4.0
+library(dplyr)  # 1.0.5
+library(tidyr)  # 1.1.3
+library(ggplot2) # 3.3.5
+library(ggpubr)  # 0.4.0
+library(gridExtra) # 2.3
+library(grid) # base
+library(RColorBrewer) # 1.1-2
 source("ggplot_theme.R")
 ```
 
@@ -43,9 +44,54 @@ joined_no2016 <- read_csv("../output/clean_hfi_suicides_joined_no2016.csv",
 # print(summary(joined_no2016))
 ```
 
+<br>
+
+## Does a country's population size impact freedom?
+#### There exists only a weak correlation between population size and human freedom for a country
+```{r pop_size_freedom, fig.width = 10, fig.height = 7, warning = FALSE, message = FALSE}
+joined_2015 <- filter(joined_no2016, year == 2015) %>%
+    group_by(year, country) %>%
+    mutate(total_suicides = sum(suicides_no),
+           total_pop = sum(population),
+           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
+    ungroup() %>%
+    select(year, country, total_pop, hf_score, total_suicides_p100k, gdp_per_capita) %>%
+    unique() %>%
+    arrange(total_pop)
+
+ggplot(joined_2015, aes(x = total_pop, y = hf_score)) +
+    geom_point(alpha = 0.4) +
+    geom_smooth(method = 'lm') +
+    stat_regline_equation(aes(label = paste(..adj.rr.label..)), formula = formula,
+                          size = 5, label.x.npc = "center", label.y.npc = "top") +
+    scale_x_continuous(label = function(x) {paste(x / 1000000)}) +
+    labs(x = 'Population (millions of people)', y = '', subtitle = "2015 Overall Human Freedom Score vs Population",
+         title = "A country's population doesn't seem to impact its overall freedom",
+         caption = "R 4.1.2, ggplot2 3.3.5 (plot), ggpubr 0.4.0 (R^2 value)") +
+    theme(text = element_text(size = 14),
+          plot.title = element_text(size = 18, hjust = 0.5),
+          plot.subtitle = element_text(size = 16, hjust = 0.5, face = 'italic'),
+          plot.caption = element_text(size = 12),
+          axis.ticks = element_blank())
+
+ggsave("../graphics/scat_pop_freedom.png", width = 9, height = 6, units = "in")
+
+# Hypothesis: Countries with smaller populations will have more freedom
+total_rows <- nrow(joined_2015)  # 56
+row_split <- total_rows / 2  # 28
+small_pop <- joined_2015[1:28, ]
+large_pop <- joined_2015[29:56, ]
+
+# Perform a Welch's t-test to determine if two populations are signifcantly different
+# p-value of 0.06, significant at 90% confidence level, but I am using 95% confidence
+# Fail to reject null hypothesis at 95% confidence level, though it's close
+t.test(small_pop$hf_score, large_pop$hf_score)
+```
+
+<br>
 
 ## Do female freedom scores relate to female suicide rates?
-```{r fem_freedom_suicide, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+```{r fem_freedom_suicide, fig.width = 10, fig.height = 7, warning = FALSE, message = FALSE}
 # Aggregate data to remove age, sex breakdowns
 fem_freedom_suic <- joined_no2016 %>%
     filter(sex == 'female') %>%
@@ -70,14 +116,16 @@ formula <- y ~ x
 # Their suicide rates cover the whole range from low to high rates, incidating a lack of relationship
 ggplot(fem_freedom_suic, aes(x = avg_fem_freedom, y = total_suicides_p100k)) +
     geom_boxplot(aes(group = cut_width(avg_fem_freedom, 1))) +
+    geom_smooth(method = 'lm') +
     stat_regline_equation(aes(label = paste(..adj.rr.label..)), formula = formula, size = 5) +
-    labs(x = 'Average female freedom', y = '', subtitle = "Total Suicides per 100,000 persons vs Average Female Freedom",
+    labs(x = 'Average female freedom', y = '',
+         subtitle = "Total Suicides per 100,000 persons vs Average Female Freedom (2008-2015)",
          title = "Female suicide rates doesn't seem to be related to female freedom",
          caption = "R 4.1.2, ggplot2 3.3.5 (plot), ggpubr 0.4.0 (R^2 value)") +
-    theme(text = element_text(size = 12),
-          plot.title = element_text(size = 16),
-          plot.subtitle = element_text(size = 14, face = 'italic'),
-          plot.caption = element_text(size = 11),
+    theme(text = element_text(size = 14),
+          plot.title = element_text(size = 18, hjust = 0.5),
+          plot.subtitle = element_text(size = 16, hjust = 0.5, face = 'italic'),
+          plot.caption = element_text(size = 12),
           axis.ticks = element_blank())
 
 ggsave("../graphics/box_fem_suic_free.png", width = 9, height = 6, units = "in")
@@ -110,51 +158,8 @@ t.test(hi_fem_free$total_suicides_p100k, lo_fem_free$total_suicides_p100k)
 
 <br>
 
-## Does a country's population size impact freedom?
-#### There exists only a weak correlation between population size and human freedom for a country
-```{r pop_size_freedom, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
-joined_2015 <- filter(joined_no2016, year == 2015) %>%
-    group_by(year, country) %>%
-    mutate(total_suicides = sum(suicides_no),
-           total_pop = sum(population),
-           total_suicides_p100k = total_suicides / total_pop * 100000) %>%
-    ungroup() %>%
-    select(year, country, total_pop, hf_score, total_suicides_p100k, gdp_per_capita) %>%
-    unique() %>%
-    arrange(total_pop)
-
-ggplot(joined_2015, aes(x = total_pop, y = hf_score)) +
-    geom_point(alpha = 0.4) +
-    geom_smooth(method = 'lm') +
-    stat_regline_equation(aes(label = paste(..adj.rr.label..)), formula = formula,
-                          size = 5, label.x.npc = "center", label.y.npc = "top") +
-    scale_x_continuous(label = function(x) {paste(x / 1000000)}) +
-    labs(x = 'Population (millions of people)', y = '', subtitle = "Overall Human Freedom Score vs Population",
-         title = "A country's population doesn't seem to impact its overall freedom",
-         caption = "R 4.1.2, ggplot2 3.3.5 (plot), ggpubr 0.4.0 (R^2 value)") +
-    theme(text = element_text(size = 12),
-          plot.title = element_text(size = 16),
-          plot.subtitle = element_text(size = 14, face = 'italic'),
-          plot.caption = element_text(size = 11),
-          axis.ticks = element_blank())
-
-ggsave("../graphics/scat_pop_freedom.png", width = 9, height = 6, units = "in")
-
-# Hypothesis: Countries with smaller populations will have more freedom
-total_rows <- nrow(joined_2015)  # 56
-row_split <- total_rows / 2  # 28
-small_pop <- joined_2015[1:28, ]
-large_pop <- joined_2015[29:56, ]
-
-# Perform a Welch's t-test to determine if two populations are signifcantly different
-# p-value of 0.06, significant at 90% confidence level, but I am using 95% confidence
-# Fail to reject null hypothesis at 95% confidence level, though it's close
-t.test(small_pop$hf_score, large_pop$hf_score)
-```
-
-
 ## Juxtaposed row-labeled plots - compare many country's freedom scores, suicide rates, population, and GDP per capita
-```{r juxta_row_plots, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+```{r juxta_row_plots, fig.width = 10, fig.height = 9, warning = FALSE, message = FALSE}
 # Plotting functions to create and save plots
 make_juxta_plot <- function(plot_side, data, x, y, xlab, caption, scale_x) {
     gg_init <- ggplot(data, aes_string(x = x, y = y, group = "prox_grp", color = "color_grp")) +
@@ -163,7 +168,9 @@ make_juxta_plot <- function(plot_side, data, x, y, xlab, caption, scale_x) {
         geom_point(color = "white", size = 1) +
         facet_grid(prox_grp ~ ., space = "free_y", scales = "free_y") +
         labs(x = xlab, y = '', caption = caption) +
-        ggplot_clean_theme
+        theme(legend.position = "none") +
+        ggplot_clean_theme +
+        guides(color = FALSE)
 
     if (scale_x > 0) {
         gg_inter <-  gg_init + scale_x_continuous(label = function(x) {paste(x / scale_x)},
@@ -183,24 +190,28 @@ make_juxta_plot <- function(plot_side, data, x, y, xlab, caption, scale_x) {
 save_juxta_plot <- function(left, right, title, filename) {
     grid.arrange(left, right, ncol = 2, top = textGrob(title))
     arranged_plots <- arrangeGrob(left, right, ncol = 2, top = textGrob(title))
-    ggsave(plot = arranged_plots, filename, width = 7, height = 9, units = "in")
+    ggsave(plot = arranged_plots, filename, width = 9, height = 9, units = "in")
 }
 
 caption_pkgs <- "R 4.1.2, ggplot2 3.3.5 (plot), gridExtra 2.3 (arrange plot grid), grid"
 ```
 
+<br>
 
 ## Focus on 25 smallest countries by population and compare their freedom scores
 ##### There doesn't seem to be much of a relationship here. If there was, we would expect freedom to have a positive/negative trend alongside their populations.
-```{r population_vs_freedom_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+```{r population_vs_freedom_plot, fig.width = 10, fig.height = 9, warning = FALSE, message = FALSE}
 # Population vs Freedom
-juxta_data <- joined_2015[1:25, ] %>%
+juxta_data <- joined_2015[17:56, ] %>%
     select(country, total_pop, hf_score, total_suicides_p100k) %>%
-    mutate(country = reorder(country, -total_pop))
+    arrange(-total_pop) %>%
+    mutate(country = reorder(country, total_pop),
+           prox_grp = rep(paste0("G", 1:8), each = 5),
+           color_grp = rep(paste0("CG", 1:5), times = 8))
 
 # Add proximity groups of 5 for ease of distinguishing countries
-juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
-juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
+# juxta_data$prox_grp <- rep(paste0("G", 1:5), each = 5)
+# juxta_data$color_grp <- rep(c("CG1", "CG2", "CG3", "CG4", "CG5"), times = 5)
 
 gg_left <- make_juxta_plot(plot_side = "left", data = juxta_data, x = "total_pop", y = "country",
                            xlab = "Population (millions)", caption = '', scale_x = 1000000)
@@ -208,16 +219,18 @@ gg_left <- make_juxta_plot(plot_side = "left", data = juxta_data, x = "total_pop
 gg_right <- make_juxta_plot(plot_side = "right", data = juxta_data, x = "hf_score", y = "country",
                             xlab = "Overall Human Freedom", caption = caption_pkgs, scale_x = 0)
 
-grid_title <- "A Comparison of the 25 Smallest Countries' Freedom Scores (2015)"
+grid_title <- "A Comparison of the 40 Largest Countries' Freedom Scores (2015)"
 pop_free_fn <- "../graphics/juxta_row_pop_free.png"
 save_juxta_plot(left = gg_left, right = gg_right, title = grid_title, filename = pop_free_fn)
 
 ```
 
+<br>
 
 ## Freedom vs Suicide rate
 ##### There might be a weak positive relationship here. It shows that higher freedom countries have higher suicide rates. That's curious.
-```{r freedom_vs_suicides_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+```{r freedom_vs_suicides_plot, fig.width = 10, fig.height = 9, warning = FALSE, message = FALSE}
+# 40 largest countries
 free_suic_juxta_data <- joined_2015[17:56, ] %>%
     select(country, hf_score, total_suicides_p100k) %>%
     droplevels() %>%
@@ -238,17 +251,18 @@ gg_left <- make_juxta_plot(plot_side = "left", data = free_suic_juxta_data,
 gg_right <- make_juxta_plot(plot_side = "right", data = free_suic_juxta_data,
                             x = "total_suicides_p100k", y = "country",
                             xlab = "Suicides Per 100,000 Persons", caption = caption_pkgs,
-                            scale_x = 100000)
+                            scale_x = 0)
 
 grid_title <- "A Comparison of the 40 Largest Countries' Freedom Scores and Suicide Rates (2015)"
 free_suic_fn <- "../graphics/juxta_row_free_suic.png"
 save_juxta_plot(left = gg_left, right = gg_right, title = grid_title, filename = free_suic_fn)
 ```
 
+<br>
 
 ## GDP per Capita vs Freedom
 ##### There seems to be a fairly strong positive relationship between a country's GDP per capita and its human freedom score. It may be easier for wealthy countries to be democratic and enjoy greater freedom. Future work: this may be related to how long a state has been independent and whether it was an imperial power or previous colony (what side of the spectrum in extracting resources and wealth).
-```{r gdp_freedom_plot, fig.height = 7, fig.width = 10, warning = FALSE, message = FALSE}
+```{r gdp_freedom_plot, fig.width = 10, fig.height = 9, warning = FALSE, message = FALSE}
 gdp_free_juxta_data <- joined_2015[17:56, ] %>%
     select(country, hf_score, gdp_per_capita) %>%
     droplevels() %>%
@@ -273,4 +287,59 @@ gg_right <- make_juxta_plot(plot_side = "right", data = gdp_free_juxta_data,
 grid_title <- "A Comparison of the 40 Largest Countries' GDP per Capita and Freedom Scores (2015)"
 gdp_free_fn <- "../graphics/juxta_row_gdp_free.png"
 save_juxta_plot(left = gg_left, right = gg_right, title = grid_title, filename = gdp_free_fn)
+```
+
+<br>
+
+## Time-series Analysis
+##### Median scores are higher for the 2 subcategories of freedom - personal and economic - and the overall score as well. Most country's Personal freedom scores are higher than their overall or economic scores with economic scores generally being the lowest.
+``` {r time-series, fig.width = 10, fig.height = 7, warning = FALSE, message = FALSE}
+score_cols <- c("pf_score", "ef_score", "hf_score")
+
+scores <- joined_no2016 %>%
+    pivot_longer(cols = score_cols, names_to = "freedom", values_to = "score") %>%
+    select(year, freedom, score)
+
+scores$freedom <- recode_factor(scores$freedom, "pf_score" = "Personal",
+                                                "hf_score" = "- Overall -",
+                                                "ef_score" = "Economic")
+freedom_aggs <- scores %>%
+    group_by(year, freedom) %>%
+    summarize(Median = median(score, na.rm = TRUE),
+              Mean = mean(score, na.rm = TRUE)) %>%
+    pivot_longer(cols = c("Median", "Mean"), names_to = "agg_type", values_to = "value") %>%
+    mutate(free_agg_comb = paste0(freedom, "_", agg_type))
+
+# freedom_aggs
+
+agg_type_linetypes <- c("Median" = "dashed", "Mean" = "dotted")
+freedom_colors <- c("Personal" = "#E41A1C", "- Overall -" = "#984EA3", "Economic" = "#377EB8")
+
+gg_freedom_agg <- freedom_aggs %>%
+    ggplot(aes(x = year, y = value, group = free_agg_comb, color = freedom)) +
+    geom_line(aes(linetype = agg_type), size = 1.1) +
+    labs(x = '', y = '', title = "Median Scores Beats Out Mean with Personal Freedom Highest",
+         subtitle = "Freedom Scores from 2008-2015 by Freedom and Aggregation Type",
+         caption = "R 4.1.2, ggplot2 3.3.5 (plot), RColorBrewer 1.1-2 (color schemes)") +
+    scale_linetype_manual(values = agg_type_linetypes, guide = "none") +
+    scale_color_manual(values = freedom_colors, guide = "none") +
+    scale_y_continuous(limits = c(7, 9)) +
+    ggplot_clean_theme +
+    # 3 Freedom type labels
+    annotate(geom = "text", x = 2011.5, y = 8.25, label = "Personal",
+             color = freedom_colors[["Personal"]], size = 6) +
+    annotate(geom = "text", x = 2011.5, y = 7.785, label = "- Overall -",
+             color = freedom_colors[["- Overall -"]], size = 6) +
+    annotate(geom = "text", x = 2011.5, y = 7.15, label = "Economic",
+             color = freedom_colors[["Economic"]], size = 6) +
+    # Aggregation Type labels
+    annotate(geom = "text", x = 2014.4, y = 8.45, label = "Median",
+             color = freedom_colors[["Personal"]], size = 4, angle = 20) +
+    annotate(geom = "text", x = 2014.4, y = 8.12, label = "Mean",
+             color = freedom_colors[["Personal"]], size = 4, angle = 13)
+
+ggsave(plot = gg_freedom_agg, "../graphics/time_freedom_agg.png",
+       width = 10, height = 7, units = "in")
+
+gg_freedom_agg
 ```
