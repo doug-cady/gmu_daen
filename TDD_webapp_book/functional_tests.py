@@ -61,6 +61,7 @@ class NewVisitorTest(unittest.TestCase):
         # Edith wonders whether the site will remember her list. Then she seems
         # that the site has generated a unique URL for her -- there is some
         # expalanatory text to that effect.
+        self.fail("Finish the test!")
 
         # She visits that URL - her to-do list is still there.
 
